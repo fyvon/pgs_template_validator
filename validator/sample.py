@@ -48,16 +48,23 @@ class Sample():
         validator = SampleValidator(self)
         validator.check_not_null()
         validator.check_format()
+        validator.check_sample_numbers()
         if self.sample_age:
             sample_age_check_report = self.sample_age.check_data()
-            if len(sample_age_check_report) > 0:
-                for check_report in sample_age_check_report:
-                    validator.report.append(check_report)
+            if len(sample_age_check_report['error']) > 0:
+                for check_report in sample_age_check_report['error']:
+                    validator.add_error_report(check_report)
+            if len(sample_age_check_report['warning']) > 0:
+                for check_report in sample_age_check_report['warning']:
+                    validator.add_warning_report(check_report)
         if self.followup_time:
             followup_time_check_report = self.followup_time.check_data()
-            if len(followup_time_check_report) > 0:
-                for check_report in followup_time_check_report:
-                    validator.report.append(check_report)
+            if len(followup_time_check_report['error']) > 0:
+                for check_report in followup_time_check_report['error']:
+                    validator.add_error_report(check_report)
+            if len(followup_time_check_report['warning']) > 0:
+                for check_report in followup_time_check_report['warning']:
+                    validator.add_warning_report(check_report)
         return validator.report
 
 
@@ -65,3 +72,35 @@ class SampleValidator(GenericValidator):
 
     def __init__(self, object, type="Sample"):
         super().__init__(object,type)
+
+
+    def check_sample_numbers(self):
+
+        sample_total = self.object.sample_number
+        sample_cases = self.object.sample_cases
+        sample_controls = self.object.sample_controls
+        sample_percent_male = self.object.sample_percent_male
+        if sample_total:
+            sample_total = int(sample_total)
+            if sample_total == 0:
+                self.add_error_report("The total number of Samples is equals to 0. The minimum value should be 1.")
+            if sample_cases:
+                sample_cases = int(sample_cases)
+                if sample_cases == 0:
+                    self.add_error_report("The number of Samples cases is equals to 0. The minimum value should be 1.")
+                if sample_cases > sample_total:
+                    self.add_error_report(f'The number of Samples cases ({sample_cases}) is greater than the total number of Samples ({sample_total})')
+            if sample_controls:
+                sample_controls = int(sample_controls)
+                if sample_controls > sample_total:
+                    self.add_error_report(f'The number of Samples controls ({sample_controls}) is greater than the total number of Samples ({sample_total})')
+            if sample_cases and sample_controls:
+                combined_samples = sample_cases + sample_controls
+                if combined_samples > sample_total:
+                    self.add_error_report(f'The combined numbers of Samples cases and controls ({sample_cases} + {sample_controls} = {combined_samples}) is greater than the total number of Samples ({sample_total})')
+            if sample_percent_male and (isinstance(sample_percent_male, int) or isinstance(sample_percent_male, float)):
+                sample_percent_male = float(sample_percent_male)
+                if sample_percent_male < 0 or sample_percent_male > 100:
+                    self.add_error_report(f'The percentage should be between 0 and 100.')
+                if 0 < sample_percent_male < 1:
+                    self.add_warning_report(f'The percentage should be between 0 and 100. Make sure that the value is supposed to be ###% and not ###*100%.')

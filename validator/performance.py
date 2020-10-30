@@ -31,9 +31,13 @@ class PerformanceMetric():
         validator.check_format()
         for metric in self.metrics:
             metric_check_report = metric.check_data()
-            if len(metric_check_report) > 0:
-                for check_report in metric_check_report:
-                    validator.report.append(check_report)
+
+            if len(metric_check_report['error']) > 0:
+                for check_report in metric_check_report['error']:
+                    validator.add_error_report(check_report)
+            if len(metric_check_report['warning']) > 0:
+                for check_report in metric_check_report['warning']:
+                    validator.add_warning_report(check_report)
         return validator.report
 
 
