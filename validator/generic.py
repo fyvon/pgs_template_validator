@@ -51,26 +51,23 @@ class GenericValidator():
                     column_label = column_format
                     is_correct_format = 0
 
+                    # Check trailing spaces
+                    column_data = self.check_whitespaces(column,column_data)
+
                     if column_format in self.column_labels:
                         column_label = self.column_labels[column_format]
                     if column_format == 'integer':
                         if re.search('^-?\d+$', column_data):
                             is_correct_format = 1
                     elif column_format == 'float':
-                        #print("FLOAT: "+column+" | TYPE: "+str(type(column_data)))
-                        #if re.search('\d+e-?\d+$',column_data, re.IGNORECASE):
-                        #    column_data = float(column_data)
-                        #    print("AFTER: "+str(column_data))
-                        #if re.search('^-?\d+\.\d+$', column_data) or re.search('^-?\d+$', column_data):
-                        #    is_correct_format =
                         try:
                             column_data = float(column_data)
                             is_correct_format = 1
                         except ValueError:
                             is_correct_format = 0
                     elif column_format == 'string':
-                        if re.search('^.+$', column_data):
-                            is_correct_format = 1
+                        #if re.search('^.+$', column_data):
+                        is_correct_format = 1
                     else:
                         if re.search(column_format, column_data):
                             is_correct_format = 1
@@ -80,3 +77,11 @@ class GenericValidator():
                         if len(error_value) > self.error_value_max_length:
                             error_value = error_value[0:self.error_value_max_length]+'...'
                         self.add_error_report(f'{self.type} column \'{column}\' (value: \'{error_value}\') is not in the required format/type ({column_label}) or has unexpected special character(s).')
+
+
+    def check_whitespaces(self, label, c_data):
+        """ Check trailing spaces/tabs and remove them """
+        if str(c_data).startswith((' ','\t')) or str(c_data).endswith((' ','\t')):
+            self.add_warning_report(f'{self.type} column \'{label}\' (value: \'{c_data}\') has leading and/or trailing whitespaces.')
+            c_data.strip(' \t')
+        return c_data
