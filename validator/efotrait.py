@@ -2,15 +2,6 @@ import requests
 
 class EFOTrait():
 
-    not_null_columns = [
-        'id'
-    ]
-
-    column_format = {
-        'id': '^EFO\.\d{7}$',
-        'label': 'string'
-    }
-
     def __init__(self, id):
         self.id = id
         self.label = None
@@ -21,5 +12,6 @@ class EFOTrait():
         if len(response) == 1:
             response = response[0]
             self.label = response['label']
+            return True
         else:
-            print("ERROR: Can't find a corresponding entry in EFO for "+self.id)
+            return False
