@@ -1,4 +1,4 @@
-from validator.generic import *
+from validator.generic import GenericValidator
 from validator.efotrait import EFOTrait
 
 class Score():

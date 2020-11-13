@@ -13,6 +13,10 @@
 .git
 .gitignore
 
+# Python pycache:
+**/__pycache__
+
 # Other
+pgs_metadata_validator.py
 LICENSE.md
 README.md

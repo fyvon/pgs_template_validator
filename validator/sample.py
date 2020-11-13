@@ -1,4 +1,4 @@
-from validator.generic import *
+from validator.generic import GenericValidator
 
 class Sample():
 
@@ -20,7 +20,7 @@ class SampleValidator(GenericValidator):
 
         sample_total = None
         if hasattr(self.object, 'sample_number'):
-            sample_number = self.object.sample_number
+            sample_total = self.object.sample_number
 
         sample_cases = None
         if hasattr(self.object, 'sample_cases'):

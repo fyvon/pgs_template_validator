@@ -86,7 +86,7 @@ class PGSMetadataValidator():
                 msg = 'The upload of the file failed'
             else:
                 msg = e.reason
-            self.report_error('General',None,'The upload of the file failed')
+            self.report_error('General',None,msg)
             return None
 
 
@@ -109,6 +109,14 @@ class PGSMetadataValidator():
 
                 print(str(workbook.sheetnames))
 
+                # Check if all the spreadsheets exist in the file
+                for model in self.spreadsheet_names:
+                    spreadsheet_name = self.spreadsheet_names[model]
+
+                    if not spreadsheet_name in workbook.sheetnames:
+                        self.report_error('General',None,f'The spreadsheet "{spreadsheet_name}" is missing in the Excel file')
+                        return False
+
                 self.workbook_publication = workbook[self.spreadsheet_names['Publication']]
 
                 self.workbook_scores = workbook[self.spreadsheet_names['Score']]
@@ -123,6 +131,7 @@ class PGSMetadataValidator():
 
 
     def parse_template_schema(self):
+        """ Parse the template2model schema file. The collected and stored data will be used for the validations. """
         schema_workbook = load_workbook(self.template_columns_schema_file)
         curation_sheet = schema_workbook["Curation"]
         schema_columns = get_column_name_index(curation_sheet)
@@ -148,11 +157,12 @@ class PGSMetadataValidator():
                         self.mandatory_fields[sheet_name] = []
                     self.mandatory_fields[sheet_name].append(field_name)
 
-            if not model_name in self.spreadsheet_names:
+            if not model_name in self.spreadsheet_names and model_name is not None:
                 self.spreadsheet_names[model_name] = sheet_name
 
 
     def parse_publication(self):
+        """ Parse and validate the Publication spreadsheet. """
         spread_sheet_name = self.spreadsheet_names['Publication']
         col_names = get_column_name_index(self.workbook_publication)
         c_doi = ''
@@ -181,6 +191,7 @@ class PGSMetadataValidator():
 
 
     def parse_scores(self):
+        """ Parse and validate the Score spreadsheet. """
         spread_sheet_name = self.spreadsheet_names['Score']
         current_schema = self.table_mapschema[spread_sheet_name]
         col_names = get_column_name_index(self.workbook_scores, row_index=2)
@@ -222,10 +233,11 @@ class PGSMetadataValidator():
 
 
     def parse_cohorts(self):
-        spread_sheet_name = self.spreadsheet_names['Cohort']
-        current_schema = self.table_mapschema[spread_sheet_name]
+        """ Parse the Cohort reference spreadsheet. """
         row_start = 2
         for cohort_info in self.workbook_cohorts.iter_rows(min_row=row_start, max_row=self.workbook_cohorts.max_row, values_only=True):
+            if not cohort_info or len(cohort_info) == 0 or not cohort_info[0]:
+                break
             cohort_id = cohort_info[0].upper()
             cohort_id = cohort_id.strip()
             if not cohort_id in self.cohorts_list:
@@ -233,7 +245,7 @@ class PGSMetadataValidator():
 
 
     def cohort_to_list(self, cstring, row_id, spread_sheet_name):
-        #cohort_df = self.table_cohorts
+        """ Check that the given cohort ID is in the Cohort spreadsheet. """
         clist = set()
         for cname in cstring.split(','):
             cname = cname.strip().upper()
@@ -245,6 +257,7 @@ class PGSMetadataValidator():
 
 
     def parse_performances(self):
+        """ Parse and validate the Performance Metrics spreadsheet. """
         spread_sheet_name = self.spreadsheet_names['Performance']
         current_schema = self.table_mapschema[spread_sheet_name]
         col_names = get_column_name_index(self.workbook_performances, row_index=2)
@@ -284,25 +297,11 @@ class PGSMetadataValidator():
                     else:
                         parsed_performance[field] = val
 
-            #if len(parsed_performance['metrics']) > 0:
             performance = PerformanceMetric()
             performance = populate_object(self.workbook_performances, performance, parsed_performance, self.fields_infos[spread_sheet_name])
 
-                # performance = PerformanceMetric(
-                #     parsed_performance['score_name'],
-                #     parsed_performance['sampleset'],
-                #     parsed_performance['phenotyping_reported'],
-                #     parsed_performance['metrics']
-                # )
-                # if 'covariates' in parsed_performance:
-                #     performance.covariates = parsed_performance['covariates']
-                # if 'performance_comments' in parsed_performance:
-                #     performance.performance_comments = parsed_performance['performance_comments']
-
             performance_check_report = performance.check_data(self.fields_infos[spread_sheet_name], self.mandatory_fields[spread_sheet_name])
             self.add_check_report(spread_sheet_name, row_id, performance_check_report)
-
-            #self.parsed_scores[score_name] = score
 
             performance_id = parsed_performance['score_name']+'__'+parsed_performance['sampleset']
             self.parsed_performances[performance_id] = performance
@@ -317,6 +316,7 @@ class PGSMetadataValidator():
 
 
     def parse_samples(self):
+        """ Parse and validate the Sample spreadsheet. """
         spread_sheet_name = self.spreadsheet_names['Sample']
         current_schema = self.table_mapschema[spread_sheet_name]
         col_names = get_column_name_index(self.workbook_samples)
@@ -351,7 +351,7 @@ class PGSMetadataValidator():
 
 
     def parse_samples_scores(self, spread_sheet_name, current_schema, samples_scores, col_names):
-
+        """ Parse and validate the GWAS and the Score development samples in the Sample spreadsheet. """
         # Parse GWAS data
         gwas_samples = load_GWAScatalog(self.loc_localGWAS)
 
@@ -372,7 +372,6 @@ class PGSMetadataValidator():
             # Parse from GWAS Catalog
             if ('sample_number' not in sample_remapped.keys()):
                 if ('source_GWAS_catalog' in sample_remapped) and (sample_remapped['source_GWAS_catalog'] in gwas_samples):
-                    gwas_results = []
                     gwas_ss = gwas_samples[sample_remapped['source_GWAS_catalog']]
                     for gwas_study in gwas_ss:
                         c_sample = sample_remapped.copy()
@@ -416,6 +415,7 @@ class PGSMetadataValidator():
 
 
     def parse_samples_testing(self, spread_sheet_name, current_schema, samples_testing, col_names):
+        """ Parse and validate the testing samples in the Sample spreadsheet. """
         # Extract data Testing samples
         sample_sets_list = []
 
@@ -440,15 +440,6 @@ class PGSMetadataValidator():
                     elif field in ['sample_age', 'followup_time']:
                         val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field)
                     sample_remapped[field] = val
-                    #if val is not None:
-                        #print(">> Field "+str(field)+": "+str(val))
-
-            # if re.search('^\=',str(sample_remapped['sample_number'])):
-            #     sample_remapped['sample_number'] = calculate_formula(self.workbook_samples,sample_remapped['sample_number'])
-            # sample_object = Sample(
-            #     int(sample_remapped['sample_number']),
-            #     sample_remapped['ancestry_broad']
-            # )
 
             if re.search('^\=',str(sample_remapped['sample_number'])):
                 sample_remapped['sample_number'] = calculate_formula(self.workbook_samples,sample_remapped['sample_number'])
@@ -489,6 +480,12 @@ class PGSMetadataValidator():
 
 
     def report_error(self, spread_sheet_name, row_id, msg):
+        """ 
+        Store the reported error.
+        - spread_sheet_name: name of the spreadsheet (e.g. Publication Information)
+        - row_id: row number
+        - msg: error message
+        """
         if not spread_sheet_name in self.report['error']:
             self.report['error'][spread_sheet_name] = {}
         # Avoid duplicated message
@@ -499,6 +496,12 @@ class PGSMetadataValidator():
             self.report['error'][spread_sheet_name][msg].append(row_id)
 
     def report_warning(self, spread_sheet_name, row_id, msg):
+        """
+        Store the reported warning.
+        - spread_sheet_name: name of the spreadsheet (e.g. Publication Information)
+        - row_id: row number
+        - msg: warning message
+        """
         if not spread_sheet_name in self.report['warning']:
             self.report['warning'][spread_sheet_name] = {}
         # Avoid duplicated message
@@ -509,6 +512,7 @@ class PGSMetadataValidator():
             self.report['warning'][spread_sheet_name][msg].append(row_id)
 
     def add_check_report(self, spread_sheet_name, row_id, check_report_list):
+        """ Store the model check reports (errors and warnings). """
         report_error_list = check_report_list['error']
         if len(report_error_list) > 0:
             for check_report in report_error_list:
@@ -520,6 +524,7 @@ class PGSMetadataValidator():
 
 
     def str2metric(self, field, val, row_id, spread_sheet_name, wb_spreadsheet):
+        """ Parse and validate the metrics data from the Performance Metrics spreadsheet. """
         _, ftype, fname = field.split('_')
 
         # Find out what type of metric it is (double checking the field name)
@@ -562,7 +567,7 @@ class PGSMetadataValidator():
                     current_metric['name'] = mname.split('(')[0]
                     current_metric['name_short'] = matches_parentheses[0]
 
-            #Check if SE is reported
+            # Check if SE is reported
             matches_parentheses = inparentheses.findall(val)
             if len(matches_parentheses) == 1:
                 val = val.split('(')[0].strip()
@@ -592,12 +597,6 @@ class PGSMetadataValidator():
         if not 'name_short' in current_metric:
             current_metric['name_short'] = current_metric['name']
 
-        # metric_obj = Metric(
-        #     current_metric['name'],
-        #     current_metric['name_short'],
-        #     current_metric['type'],
-        #     current_metric['estimate']
-        # )
         metric_obj = Metric()
         metric_obj = populate_object(wb_spreadsheet, metric_obj, current_metric, metric_fields_infos)
 
@@ -605,11 +604,12 @@ class PGSMetadataValidator():
 
 
     def str2demographic(self, val, row_id, spread_sheet_name, wb_spreadsheet, field):
+        """ Parse and validate the samples age and follow-up data from the Sample spreadsheet. """
         current_demographic = {}
         if type(val) == float:
             current_demographic['estimate'] = val
         else:
-            #Split by ; in case of multiple sub-fields
+            # Split by ; in case of multiple sub-fields
             l = val.split(';')
             for x in l:
                 name, value = x.split('=')
@@ -619,7 +619,6 @@ class PGSMetadataValidator():
                 # Check if it contains a range item
                 matches = insquarebrackets.findall(value)
                 if len(matches) == 1:
-                    range_match = tuple(map(float, matches[0].split(' - ')))
                     if re.search(interval_format, matches[0]):
                         current_demographic['range'] = matches[0]
                     else:
@@ -652,13 +651,13 @@ class PGSMetadataValidator():
             demographic_fields_infos = demographic_followup_fields_infos
 
         demographic = Demographic()
-        #demographic = complete_object(wb_spreadsheet, demographic, current_demographic)
         demographic = populate_object(wb_spreadsheet, demographic, current_demographic, demographic_fields_infos)
 
         return demographic
 
 
 def get_column_name_index(worksheet, row_index=1):
+    """ Get the list of column names and theirs indexes from a spreadsheet header. """
     col_names = {}
     col_indexes = {}
     for row in worksheet.iter_rows(min_row=1, max_row=row_index):
@@ -674,6 +673,7 @@ def get_column_name_index(worksheet, row_index=1):
 
 
 def load_GWAScatalog(outdir):
+    """ Parse the GWAS ancestry file and store its content. """
     ancestry_filename = 'gwas-catalog-ancestry.csv'
     if outdir.endswith('/'):
         loc_local = outdir + ancestry_filename
@@ -709,6 +709,7 @@ def load_GWAScatalog(outdir):
 
 
 def populate_object(wb_spreadsheet, object, object_dict, object_fields):
+    """ Generic method to populate a validator object. """
     for field in object_fields:
         if field.startswith('__'):
             continue
@@ -719,21 +720,6 @@ def populate_object(wb_spreadsheet, object, object_dict, object_fields):
                     if re.search('^\=',str(object_dict[field])):
                         value = calculate_formula(wb_spreadsheet,value)
                     setattr(object, field, value)
-    return object
-
-
-def complete_object(wb_spreadsheet, object, object_dict):
-    object_attrs = object.__dict__.keys()
-    for attr in object_attrs:
-        # Not overlapping existing data
-        if getattr(object, attr) is not None:
-            continue
-        elif attr in object_dict:
-            if object_dict[attr] is not None:
-                value = object_dict[attr]
-                if re.search('^\=',str(object_dict[attr])):
-                    value = calculate_formula(wb_spreadsheet,value)
-                setattr(object, attr, value)
     return object
 
 
@@ -784,6 +770,7 @@ def get_cell_value(spreadsheet,cell_id):
         return None
 
 def trim_column_label(label):
+    """ Shorten the column labels in the report if it is too long. """
     column_label = label.split('\n')[0].strip(' \t')
     if len(column_label) > 40:
         column_label = column_label[:40]+'...'

@@ -1,4 +1,4 @@
-from validator.generic import *
+from validator.generic import GenericValidator
 
 class Metric():
 
