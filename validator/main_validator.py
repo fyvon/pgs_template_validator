@@ -15,13 +15,15 @@ from validator.score import Score
 
 # Needed for parsing confidence intervals
 insquarebrackets = re.compile('\\[([^)]+)\\]')
-interval_format = '^\d+.?\d*\s\-\s\d+.?\d*$'
+interval_format = '^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
 inparentheses = re.compile('\((.*)\)')
 
 alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 #template_columns_schema_file = './templates/TemplateColumns2Models_v5.xlsx'
 template_columns_schema_file = './templates/TemplateColumns2Models_v5a.xlsx'
+
+
 
 metric_fields_infos = {
     'name': {'type': 'string', 'label': 'Metric - name'},
@@ -30,13 +32,13 @@ metric_fields_infos = {
     'estimate': {'type': 'float', 'label': 'Metric - Estimate value'},
     'unit': {'type': 'string', 'label': 'Metric - Unit data'},
     'se': {'type': 'float', 'label': 'Metric - Standard error value'},
-    'ci': {'type': '^\d+\.?\d*\s\-\s\d+\.?\d*$', 'label': 'Metric - Confidence interval'},
+    'ci': {'type': interval_format, 'label': 'Metric - Confidence interval'},
 }
 demographic_age_fields_infos = {
     'estimate': {'type': 'float', 'label': 'Age - Value'},
     'estimate_type': {'type': 'string', 'label': 'Age - Value type'},
     'unit': {'type': 'string', 'label': 'Age - Unit'},
-    'range': {'type': '^\d+\.?\d*\s\-\s\d+\.?\d*$', 'label': 'Age - Range'},
+    'range': {'type': interval_format, 'label': 'Age - Range'},
     'range_type': {'type': 'string', 'label': 'Age - Range type'},
     'variability': {'type': 'float', 'label': 'Age - Variablility'},
     'variability_type': {'type': 'string', 'label': 'Age - Variablility type'}
@@ -45,7 +47,7 @@ demographic_followup_fields_infos = {
     'estimate': {'type': 'float', 'label': 'Follow up Time - Value'},
     'estimate_type': {'type': 'string', 'label': 'Follow up Time - Value type'},
     'unit': {'type': 'string', 'label': 'Follow up Time - Unit'},
-    'range': {'type': '^\d+\.?\d*\s\-\s\d+\.?\d*$', 'label': 'Follow up Time - Range'},
+    'range': {'type': interval_format, 'label': 'Follow up Time - Range'},
     'range_type': {'type': 'string', 'label': 'Follow up Time - Range type'},
     'variability': {'type': 'float', 'label': 'Follow up Time - Variablility'},
     'variability_type': {'type': 'string', 'label': 'Follow up Time - Variablility type'}
@@ -231,6 +233,9 @@ class PGSMetadataValidator():
 
             self.parsed_scores[score_name] = score
 
+        if not self.parsed_scores:
+            self.report_error(spread_sheet_name,None,"No data found in this spreadsheet!")
+
 
     def parse_cohorts(self):
         """ Parse the Cohort reference spreadsheet. """
@@ -313,6 +318,9 @@ class PGSMetadataValidator():
                     self.add_check_report(spread_sheet_name, row_id, metric_check_report)
             else:
                 self.report_error(spread_sheet_name,row_id,"The entry is missing associated Performance Metrics data (Effect size, Classification or Other)")
+        
+        if not self.parsed_performances:
+            self.report_error(spread_sheet_name,None,"No data found in this spreadsheet!")
 
 
     def parse_samples(self):
@@ -343,11 +351,14 @@ class PGSMetadataValidator():
                 score_name = self.check_and_remove_whitespaces(spread_sheet_name, row_id, self.fields_infos[spread_sheet_name]['__score_name']['label'], score_name)
                 samples_scores[row_id] = sample_info
 
-        if len(samples_testing.keys()) == 0:
-            self.report_error(spread_sheet_name, None, "There are no 'Testing' sample entries for this study.")
-
-        self.parse_samples_scores(spread_sheet_name, current_schema, samples_scores, col_names)
-        self.parse_samples_testing(spread_sheet_name, current_schema, samples_testing, col_names)
+        if not samples_scores and not samples_testing:
+            self.report_error(spread_sheet_name,None,"No data found in this spreadsheet!")
+        else:
+            self.parse_samples_scores(spread_sheet_name, current_schema, samples_scores, col_names)
+            if not samples_testing:
+                self.report_error(spread_sheet_name, None, "There are no 'Testing' sample entries for this study.")
+            else:
+                self.parse_samples_testing(spread_sheet_name, current_schema, samples_testing, col_names)
 
 
     def parse_samples_scores(self, spread_sheet_name, current_schema, samples_scores, col_names):
@@ -412,12 +423,16 @@ class PGSMetadataValidator():
                     self.add_check_report(spread_sheet_name, row_id, ft_check_report)
 
                 self.parsed_samples_scores.append(sample_object)
+        
+        if not self.parsed_samples_scores:
+            self.report_error(spread_sheet_name,None,"No correct Sample Score entries found in this spreadsheet (from GWAS or used in Score Development)")
 
 
     def parse_samples_testing(self, spread_sheet_name, current_schema, samples_testing, col_names):
         """ Parse and validate the testing samples in the Sample spreadsheet. """
         # Extract data Testing samples
         sample_sets_list = []
+        self.mandatory_fields[spread_sheet_name].append('cohorts')
 
         for row_id, sample_info in samples_testing.items():
             sampleset = sample_info[2]
@@ -468,6 +483,9 @@ class PGSMetadataValidator():
         for sampleset in self.parsed_samplesets:
             if not sampleset in sample_sets_list:
                 self.report_warning(spread_sheet_name, None, f'The Sample Set ID "{sampleset}" (presents in the \'Performance Metrics\' spreadsheet) has no linked samples.')
+
+        if not self.parsed_samples_testing:
+            self.report_error(spread_sheet_name,None,"No correct Sample Testing entries found in this spreadsheet")
 
 
     def check_and_remove_whitespaces(self, spread_sheet_name, row_id, label, data):
@@ -557,6 +575,7 @@ class PGSMetadataValidator():
         if type(val) == float:
             current_metric['estimate'] = val
         else:
+            val = str(val)
             matches_square = insquarebrackets.findall(val)
             #Check if an alternative metric has been declared
             if '=' in val:
@@ -694,6 +713,7 @@ def load_GWAScatalog(outdir):
         for row in csv_reader:
             # Skip header
             if line_count == 0:
+                line_count += 1
                 continue
             if row["STAGE"] == 'initial':
                 gcst_id = row['STUDY ACCESSION']

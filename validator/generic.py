@@ -7,7 +7,7 @@ class GenericValidator():
         'string' : 'string',
         'integer': 'number (no decimal)',
         'float': 'number (with decimal)',
-        '^\d+\.?\d*\s\-\s\d+\.?\d*$': 'interval (e.g. [1.00 [0.80 - 1.20])',
+        '^\-?\d+\.?\d*\s\-\s\-?\d+\.?\d*$': 'interval (e.g. [1.00 [0.80 - 1.20])',
         '^EFO\.\d{7}$': 'EFO ID, e.g. EFO_0001645'
     }
 

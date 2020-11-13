@@ -60,9 +60,10 @@ def post_file():
     if loaded_spreadsheets:
         metadata_validator.parse_publication()
         metadata_validator.parse_scores()
-        metadata_validator.parse_cohorts()
-        metadata_validator.parse_performances()
-        metadata_validator.parse_samples()
+        if metadata_validator.parsed_scores:
+            metadata_validator.parse_cohorts()
+            metadata_validator.parse_performances()
+            metadata_validator.parse_samples()
 
     status = 'success'
     if metadata_validator.report['error']:
