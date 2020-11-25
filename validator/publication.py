@@ -10,16 +10,18 @@ class Publication():
     def populate_from_eupmc(self):
         payload = {'format' : 'json'}
         eupmc_url = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search'
+        result = None
         try:
             payload['query'] = 'doi:' + self.doi
-            result = requests.get(eupmc_url, params=payload)
-            result = result.json()
-            result = result['resultList']['result'][0]
+            query_result = requests.get(eupmc_url, params=payload)
+            result_json = query_result.json()
+            result = result_json['resultList']['result'][0]
         except:
             payload['query'] = 'ext_id:' + str(self.PMID)
-            result = requests.get(eupmc_url, params=payload)
-            result = result.json()
-            result = result['resultList']['result'][0]
+            query_result = requests.get(eupmc_url, params=payload)
+            result_json = query_result.json()
+            if result_json['resultList']['result']:
+                result = result_json['resultList']['result'][0]
 
         if result:
             if not self.doi:

@@ -31,10 +31,10 @@ def main():
     metadata_validator.parse_spreadsheets()
     metadata_validator.parse_publication()
     metadata_validator.parse_scores()
-    if metadata_validator.parsed_scores:
-        metadata_validator.parse_cohorts()
-        metadata_validator.parse_performances()
-        metadata_validator.parse_samples()
+    metadata_validator.parse_cohorts()
+    metadata_validator.parse_performances()
+    metadata_validator.parse_samples()
+    metadata_validator.post_parsing_checks()
 
     if metadata_validator.report['error']:
         print("\n#### Reported error(s) ####\n")

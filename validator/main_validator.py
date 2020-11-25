@@ -15,8 +15,8 @@ from validator.score import Score
 
 # Needed for parsing confidence intervals
 insquarebrackets = re.compile('\\[([^)]+)\\]')
-interval_format = '^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
-inparentheses = re.compile('\((.*)\)')
+interval_format = r'^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
+inparentheses = re.compile(r'\((.*)\)')
 
 alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -74,6 +74,7 @@ class PGSMetadataValidator():
         self.loc_localGWAS = './local_GWASCatalog/'
         self.report = { 'error': {}, 'warning': {} }
         self.spreadsheet_names = {}
+        self.scores_spreadsheet_onhold = { 'is_empty': False, 'label': '', 'error_msg': None, 'has_pgs_ids': False, 'has_testing_samples': False }
 
 
     def load_workbook_from_url(self):
@@ -91,6 +92,10 @@ class PGSMetadataValidator():
             self.report_error('General',None,msg)
             return None
 
+
+    #========================#
+    #  Main parsing methods  #
+    #========================#
 
     def parse_spreadsheets(self):
         '''ReadCuration takes as input the location of a study metadata file'''
@@ -114,9 +119,9 @@ class PGSMetadataValidator():
                 # Check if all the spreadsheets exist in the file
                 for model in self.spreadsheet_names:
                     spreadsheet_name = self.spreadsheet_names[model]
-
                     if not spreadsheet_name in workbook.sheetnames:
-                        self.report_error('General',None,f'The spreadsheet "{spreadsheet_name}" is missing in the Excel file')
+                        msg = f'The spreadsheet "{spreadsheet_name}" is missing in the Excel file.'
+                        self.report_error('General',None,msg)
                         return False
 
                 self.workbook_publication = workbook[self.spreadsheet_names['Publication']]
@@ -186,7 +191,13 @@ class PGSMetadataValidator():
         publication = Publication(c_doi, c_PMID)
         is_in_eupmc = publication.populate_from_eupmc()
         if not is_in_eupmc:
-            self.report_error(spread_sheet_name,row_id,"Can't find the Publication in EuropePMC (DOI and/or PubMed ID not matching)")
+            doi_label = ''
+            if c_doi and c_doi != '':
+                doi_label = f' ({c_doi})'
+            PMID_label = ''
+            if c_PMID and c_PMID != '':
+                PMID_label = f' ({c_PMID})'
+            self.report_error(spread_sheet_name,row_id,f'Can\'t find the Publication in EuropePMC: DOI{doi_label} and/or PubMed ID{PMID_label} not found')
         else:
             publication_check_report = publication.check_data(self.fields_infos[spread_sheet_name], self.mandatory_fields[spread_sheet_name])
             self.add_check_report(spread_sheet_name, row_id, publication_check_report)
@@ -199,6 +210,7 @@ class PGSMetadataValidator():
         col_names = get_column_name_index(self.workbook_scores, row_index=2)
 
         row_start = 3
+        trait_efo_field = 'trait_efo'
         for row_id, score_info in enumerate(self.workbook_scores.iter_rows(min_row=row_start, max_row=self.workbook_scores.max_row, values_only=True), start=row_start):
             score_name = score_info[0]
             if not score_name or score_name == '':
@@ -207,22 +219,23 @@ class PGSMetadataValidator():
             for col_name in col_names:
                 val = score_info[col_names[col_name]]
                 val = self.check_and_remove_whitespaces(spread_sheet_name, row_id, col_name, val)
-                if (col_name in current_schema) and (val != ''):
+                if col_name in current_schema and val != '' and val:
                     field = current_schema[col_name]
-                    if field == 'trait_efo':
+                    if field == trait_efo_field:
                         efo_list = val.split(',')
                         parsed_score[field] = efo_list
                     else:
                         parsed_score[field] = val
 
-            for trait_efo_id in parsed_score['trait_efo']:
-                if not trait_efo_id in self.parsed_efotraits:
-                    efo_trait = EFOTrait(trait_efo_id)
-                    efo_id_found = efo_trait.populate_from_efo()
-                    if efo_id_found:
-                        self.parsed_efotraits[trait_efo_id] = efo_trait
-                    else:
-                        self.report_error(spread_sheet_name,row_id,"Can't find a corresponding entry in EFO for '"+trait_efo_id+"'")
+            if trait_efo_field in parsed_score:
+                for trait_efo_id in parsed_score[trait_efo_field]:
+                    if not trait_efo_id in self.parsed_efotraits:
+                        efo_trait = EFOTrait(trait_efo_id)
+                        efo_id_found = efo_trait.populate_from_efo()
+                        if efo_id_found:
+                            self.parsed_efotraits[trait_efo_id] = efo_trait
+                        else:
+                            self.report_error(spread_sheet_name,row_id,"Can't find a corresponding entry in EFO for '"+trait_efo_id+"'")
 
             # Score object and checks
             score = Score()
@@ -234,7 +247,9 @@ class PGSMetadataValidator():
             self.parsed_scores[score_name] = score
 
         if not self.parsed_scores:
-            self.report_error(spread_sheet_name,None,"No data found in this spreadsheet!")
+            self.scores_spreadsheet_onhold['is_empty'] = True
+            self.scores_spreadsheet_onhold['label'] = spread_sheet_name
+            self.scores_spreadsheet_onhold['error_msg'] = "No data found in this spreadsheet!"
 
 
     def parse_cohorts(self):
@@ -274,8 +289,13 @@ class PGSMetadataValidator():
             score_name = performance_info[0]
             if not score_name or score_name == '':
                 break
-            if not score_name in score_names_list:
-                self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
+            # Check that the score name is in the "Score(s)"" spreadsheet
+            if self.scores_spreadsheet_onhold['is_empty'] == False:
+                if not score_name in score_names_list:
+                    self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
+            # If the "Score(s)"" spreadsheet is empty, check that the score name is a PGS ID
+            elif re.search('^PGS\d{6}$',score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
+                self.scores_spreadsheet_onhold['has_pgs_ids'] = True
 
             sampleset  = performance_info[1]
             if not sampleset in self.parsed_samplesets:
@@ -287,7 +307,7 @@ class PGSMetadataValidator():
             for col_name in col_names:
                 val = performance_info[col_names[col_name]]
                 val = self.check_and_remove_whitespaces(spread_sheet_name, row_id, col_name, val)
-                if (col_name in current_schema) and (val != '') and val:
+                if (col_name in current_schema) and (val != '') and val != None:
                     field = current_schema[col_name]
                     if field.startswith('metric'):
                         if ';' in str(val):
@@ -351,6 +371,9 @@ class PGSMetadataValidator():
                 score_name = self.check_and_remove_whitespaces(spread_sheet_name, row_id, self.fields_infos[spread_sheet_name]['__score_name']['label'], score_name)
                 samples_scores[row_id] = sample_info
 
+        if samples_testing and self.scores_spreadsheet_onhold['is_empty']:
+            self.scores_spreadsheet_onhold['has_testing_samples'] = True
+
         if not samples_scores and not samples_testing:
             self.report_error(spread_sheet_name,None,"No data found in this spreadsheet!")
         else:
@@ -372,7 +395,7 @@ class PGSMetadataValidator():
             for col_name in col_names:
                 val = sample_info[col_names[col_name]]
                 val = self.check_and_remove_whitespaces(spread_sheet_name, row_id, col_name, val)
-                if (col_name in current_schema) and (val != '') and val:
+                if (col_name in current_schema) and (val != '') and val != None:
                     field = current_schema[col_name]
                     if field == 'cohorts':
                         val = self.cohort_to_list(val, row_id,spread_sheet_name)
@@ -424,7 +447,7 @@ class PGSMetadataValidator():
 
                 self.parsed_samples_scores.append(sample_object)
         
-        if not self.parsed_samples_scores:
+        if not self.parsed_samples_scores and self.scores_spreadsheet_onhold['is_empty'] == False:
             self.report_error(spread_sheet_name,None,"No correct Sample Score entries found in this spreadsheet (from GWAS or used in Score Development)")
 
 
@@ -448,7 +471,7 @@ class PGSMetadataValidator():
                 val = sample_info[col_names[col_name]]
                 val = self.check_and_remove_whitespaces(spread_sheet_name, row_id, col_name, val)
                 #print("## "+col_name+": "+str(val))
-                if (col_name in current_schema) and (val != '') and val:
+                if (col_name in current_schema) and (val != '') and val != None:
                     field = current_schema[col_name]
                     if field == 'cohorts':
                         val = self.cohort_to_list(val, row_id, spread_sheet_name)
@@ -456,13 +479,15 @@ class PGSMetadataValidator():
                         val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field)
                     sample_remapped[field] = val
 
-            if re.search('^\=',str(sample_remapped['sample_number'])):
-                sample_remapped['sample_number'] = calculate_formula(self.workbook_samples,sample_remapped['sample_number'])
-            try:
-                sample_remapped['sample_number'] = int(float(sample_remapped['sample_number']))
-            except ValueError:
-                self.report_error(spread_sheet_name, row_id, "Can't parse the data from the column '"+self.fields_infos[spread_sheet_name]['sample_number']['label']+"': "+str(sample_remapped['sample_number']))
-                continue
+            for sample_value in ['sample_number', 'sample_cases', 'sample_controls']:
+                if re.search('^\=',str(sample_remapped[sample_value])):
+                    print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
+                    sample_remapped[sample_value] = calculate_formula(self.workbook_samples,sample_remapped[sample_value])
+                try:
+                    sample_remapped[sample_value] = int(float(sample_remapped[sample_value]))
+                except ValueError:
+                    self.report_error(spread_sheet_name, row_id, "Can't parse the data from the column '"+self.fields_infos[spread_sheet_name][sample_value]['label']+"': "+str(sample_remapped[sample_value]))
+                    continue
 
             sample_object = Sample()
             sample_object = populate_object(self.workbook_samples, sample_object, sample_remapped, self.fields_infos[spread_sheet_name])
@@ -488,6 +513,27 @@ class PGSMetadataValidator():
             self.report_error(spread_sheet_name,None,"No correct Sample Testing entries found in this spreadsheet")
 
 
+
+    #=========================#
+    #  Other parsing methods  #
+    #=========================#
+
+    def post_parsing_checks(self):
+        """ Perform additional checks after the parsing of the spreadsheets. """
+
+        # Score(s) spreadsheet
+        if self.scores_spreadsheet_onhold['is_empty']:
+            if self.scores_spreadsheet_onhold['has_pgs_ids'] == False or self.scores_spreadsheet_onhold['has_testing_samples'] == False:
+                error_msg = self.scores_spreadsheet_onhold['error_msg']
+                label = self.scores_spreadsheet_onhold['label']
+                # Missing PGS IDs
+                if self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
+                    error_msg += "If the study uses existing PGS Catalog Scores, they are missing in the Performance Metrics spreadsheet (e.g. PGS000001)."
+                if self.scores_spreadsheet_onhold['has_testing_samples'] == False:
+                    error_msg += "If the study uses existing PGS Catalog Scores, you need to provide Testing sample(s)."
+                self.report_error(label,None,error_msg)
+
+
     def check_and_remove_whitespaces(self, spread_sheet_name, row_id, label, data):
         """ Check trailing spaces/tabs and remove them """
         if str(data).startswith((' ','\t')) or str(data).endswith((' ','\t')):
@@ -495,50 +541,6 @@ class PGSMetadataValidator():
             self.report_warning(spread_sheet_name, row_id, f'The content of the column \'{label}\' (i.e.: "{data}") has leading and/or trailing whitespaces.')
             data = data.strip(' \t')
         return data
-
-
-    def report_error(self, spread_sheet_name, row_id, msg):
-        """ 
-        Store the reported error.
-        - spread_sheet_name: name of the spreadsheet (e.g. Publication Information)
-        - row_id: row number
-        - msg: error message
-        """
-        if not spread_sheet_name in self.report['error']:
-            self.report['error'][spread_sheet_name] = {}
-        # Avoid duplicated message
-        if not msg in self.report['error'][spread_sheet_name]:
-            self.report['error'][spread_sheet_name][msg] = []
-        # Avoid duplicated line reports
-        if not row_id in self.report['error'][spread_sheet_name][msg]:
-            self.report['error'][spread_sheet_name][msg].append(row_id)
-
-    def report_warning(self, spread_sheet_name, row_id, msg):
-        """
-        Store the reported warning.
-        - spread_sheet_name: name of the spreadsheet (e.g. Publication Information)
-        - row_id: row number
-        - msg: warning message
-        """
-        if not spread_sheet_name in self.report['warning']:
-            self.report['warning'][spread_sheet_name] = {}
-        # Avoid duplicated message
-        if not msg in self.report['warning'][spread_sheet_name]:
-            self.report['warning'][spread_sheet_name][msg] = []
-        # Avoid duplicated line reports
-        if not row_id in self.report['warning'][spread_sheet_name][msg]:
-            self.report['warning'][spread_sheet_name][msg].append(row_id)
-
-    def add_check_report(self, spread_sheet_name, row_id, check_report_list):
-        """ Store the model check reports (errors and warnings). """
-        report_error_list = check_report_list['error']
-        if len(report_error_list) > 0:
-            for check_report in report_error_list:
-                self.report_error(spread_sheet_name,row_id,check_report)
-        report_warning_list = check_report_list['warning']
-        if len(report_warning_list) > 0:
-            for check_report in report_warning_list:
-                self.report_warning(spread_sheet_name,row_id,check_report)
 
 
     def str2metric(self, field, val, row_id, spread_sheet_name, wb_spreadsheet):
@@ -675,8 +677,66 @@ class PGSMetadataValidator():
         return demographic
 
 
+    #=================================#
+    #  Error/warning reports methods  #
+    #=================================#
+
+    def report_error(self, spread_sheet_name, row_id, msg):
+        """
+        Store the reported error.
+        - spread_sheet_name: name of the spreadsheet (e.g. Publication Information)
+        - row_id: row number
+        - msg: error message
+        """
+        if not spread_sheet_name in self.report['error']:
+            self.report['error'][spread_sheet_name] = {}
+        # Avoid duplicated message
+        if not msg in self.report['error'][spread_sheet_name]:
+            self.report['error'][spread_sheet_name][msg] = []
+        # Avoid duplicated line reports
+        if not row_id in self.report['error'][spread_sheet_name][msg]:
+            self.report['error'][spread_sheet_name][msg].append(row_id)
+
+
+    def report_warning(self, spread_sheet_name, row_id, msg):
+        """
+        Store the reported warning.
+        - spread_sheet_name: name of the spreadsheet (e.g. Publication Information)
+        - row_id: row number
+        - msg: warning message
+        """
+        if not spread_sheet_name in self.report['warning']:
+            self.report['warning'][spread_sheet_name] = {}
+        # Avoid duplicated message
+        if not msg in self.report['warning'][spread_sheet_name]:
+            self.report['warning'][spread_sheet_name][msg] = []
+        # Avoid duplicated line reports
+        if not row_id in self.report['warning'][spread_sheet_name][msg]:
+            self.report['warning'][spread_sheet_name][msg].append(row_id)
+
+    def add_check_report(self, spread_sheet_name, row_id, check_report_list):
+        """ Store the model check reports (errors and warnings). """
+        # Error(s)
+        report_error_list = check_report_list['error']
+        if len(report_error_list) > 0:
+            for check_report in report_error_list:
+                self.report_error(spread_sheet_name,row_id,check_report)
+        # Warning(s)
+        report_warning_list = check_report_list['warning']
+        if len(report_warning_list) > 0:
+            for check_report in report_warning_list:
+                self.report_warning(spread_sheet_name,row_id,check_report)
+
+
+
+
+#=======================#
+#  Independent methods  #
+#=======================#
+
 def get_column_name_index(worksheet, row_index=1):
-    """ Get the list of column names and theirs indexes from a spreadsheet header. """
+    """ Get the list of column names and theirs indexes from a spreadsheet header.
+        This is tricky sometimes as the header is spread on 2 rows for some of them. """
     col_names = {}
     col_indexes = {}
     for row in worksheet.iter_rows(min_row=1, max_row=row_index):
@@ -757,26 +817,38 @@ def calculate_formula(spreadsheet,data):
         elif operator == '+':
             calculated_value = int(first_cell) + int(second_cell)
     else:
-        # Formulas like: =SUM(B1:C1), =SUM(B1:C2)
-        m = re.match('^\=SUM\((?P<first_col>\w)(?P<first_row>\d+)\:(?P<last_col>\w)(?P<last_row>\d+)\)$', data)
+        # Formulas like: =SUM(B1:C1), =SUM(B1:C2), =SUM(B1-C2), =SUM(B1+C2)
+        m = re.match('^\=SUM\((?P<first_col>\w)(?P<first_row>\d+)(?P<operator>\-|\+|\:)(?P<last_col>\w)(?P<last_row>\d+)\)$', data)
         if m:
-            first_index = alpha.index(m.group('first_col'))
-            last_index = alpha.index(m.group('last_col'))
+            first_col = m.group('first_col')
+            last_col = m.group('last_col')
+            first_index = alpha.index(first_col)
+            last_index = alpha.index(last_col)
             first_row = int(m.group('first_row'))
             last_row = int(m.group('last_row'))
-            current_col = alpha[first_index]
-            current_index = first_index
-            #current_row = first_row
-            tmp_calculated_value = 0
-            while current_index <= last_index:
-                current_row = first_row
-                while current_row <= last_row:
-                    tmp_calculated_value += get_cell_value(spreadsheet, current_col+str(current_row))
-                    current_row += 1
-                current_index = alpha.index(current_col)+1
-                if current_index <= last_index:
-                    current_col = alpha[current_index]
-            calculated_value = tmp_calculated_value
+            operator = m.group('operator')
+            # Range of cells
+            if operator == ':':
+                current_col = alpha[first_index]
+                current_index = first_index
+                tmp_calculated_value = 0
+                while current_index <= last_index:
+                    current_row = first_row
+                    while current_row <= last_row:
+                        tmp_calculated_value += get_cell_value(spreadsheet, current_col+str(current_row))
+                        current_row += 1
+                    current_index = alpha.index(current_col)+1
+                    if current_index <= last_index:
+                        current_col = alpha[current_index]
+                calculated_value = tmp_calculated_value
+            # Operation between 2 cells (addition of substraction)
+            else:
+                first_cell  = get_cell_value(spreadsheet, f'{first_col}{first_row}')
+                second_cell = get_cell_value(spreadsheet, f'{last_col}{last_row}')
+                if operator == '-':
+                    calculated_value = int(first_cell) - int(second_cell)
+                elif operator == '+':
+                    calculated_value = int(first_cell) + int(second_cell)
 
     return calculated_value
 
