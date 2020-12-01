@@ -13,6 +13,11 @@ from validator.publication import Publication
 from validator.sample import Sample
 from validator.score import Score
 
+
+#---------------------#
+#  General variables  #
+#---------------------#
+
 # Needed for parsing confidence intervals
 insquarebrackets = re.compile('\\[([^)]+)\\]')
 interval_format = r'^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
@@ -20,11 +25,9 @@ inparentheses = re.compile(r'\((.*)\)')
 
 alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-#template_columns_schema_file = './templates/TemplateColumns2Models_v5.xlsx'
 template_columns_schema_file = './templates/TemplateColumns2Models_v5a.xlsx'
 
-
-
+# Extra fieds information (not present in the Excel template schema)
 metric_fields_infos = {
     'name': {'type': 'string', 'label': 'Metric - name'},
     'name_short': {'type': 'string', 'label': 'Metric - short name'},
@@ -78,6 +81,10 @@ class PGSMetadataValidator():
 
 
     def load_workbook_from_url(self):
+        """
+        Load the Excel spreadsheet into an openpyxl workbook
+        > Return type: openpyxl workbooks
+        """
         url = self.filepath
         try:
             with urllib.request.urlopen(str(url)) as url:
@@ -98,7 +105,7 @@ class PGSMetadataValidator():
     #========================#
 
     def parse_spreadsheets(self):
-        '''ReadCuration takes as input the location of a study metadata file'''
+        """ReadCuration takes as input the location of a study metadata file"""
 
         self.parse_template_schema()
 
@@ -313,12 +320,12 @@ class PGSMetadataValidator():
                         if ';' in str(val):
                             try:
                                 for x in val.split(';'):
-                                    parsed_metrics.append(self.str2metric(field, x, row_id, spread_sheet_name, self.workbook_performances))
+                                    parsed_metrics.append(self.str2metric(x, row_id, spread_sheet_name, self.workbook_performances, field))
                             except:
                                 error_msg = "Error parsing the metric value '"+str(val)+"'"
                                 self.report_error(spread_sheet_name,row_id,error_msg)
                         else:
-                           parsed_metrics.append(self.str2metric(field, val, row_id, spread_sheet_name, self.workbook_performances))
+                           parsed_metrics.append(self.str2metric(val, row_id, spread_sheet_name, self.workbook_performances, field))
                     else:
                         parsed_performance[field] = val
 
@@ -400,7 +407,7 @@ class PGSMetadataValidator():
                     if field == 'cohorts':
                         val = self.cohort_to_list(val, row_id,spread_sheet_name)
                     elif field in ['sample_age', 'followup_time']:
-                        val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field)
+                        val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field, col_name)
                     sample_remapped[field] = val
 
             # Parse from GWAS Catalog
@@ -476,7 +483,7 @@ class PGSMetadataValidator():
                     if field == 'cohorts':
                         val = self.cohort_to_list(val, row_id, spread_sheet_name)
                     elif field in ['sample_age', 'followup_time']:
-                        val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field)
+                        val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field, col_name)
                     sample_remapped[field] = val
 
             for sample_value in ['sample_number', 'sample_cases', 'sample_controls']:
@@ -543,8 +550,17 @@ class PGSMetadataValidator():
         return data
 
 
-    def str2metric(self, field, val, row_id, spread_sheet_name, wb_spreadsheet):
-        """ Parse and validate the metrics data from the Performance Metrics spreadsheet. """
+    def str2metric(self, val, row_id, spread_sheet_name, wb_spreadsheet, field):
+        """
+        Parse and validate the metrics data from the Performance Metrics spreadsheet.
+        > Parameters:
+            - val: content of the cell
+            - row_id: number of the current row
+            - spread_sheet_name: name of the current spreadsheet
+            - wb_spreadsheet: workbook instance of the current spreadsheet
+            - field: corresponding field name of the current column
+        > Return: instance of the Metric object
+        """
         _, ftype, fname = field.split('_')
 
         # Find out what type of metric it is (double checking the field name)
@@ -624,8 +640,18 @@ class PGSMetadataValidator():
         return metric_obj
 
 
-    def str2demographic(self, val, row_id, spread_sheet_name, wb_spreadsheet, field):
-        """ Parse and validate the samples age and follow-up data from the Sample spreadsheet. """
+    def str2demographic(self, val, row_id, spread_sheet_name, wb_spreadsheet, field, col_name):
+        """
+        Parse and validate the samples age and follow-up data from the Sample spreadsheet.
+        > Parameters:
+            - val: content of the cell
+            - row_id: number of the current row 
+            - spread_sheet_name: name of the current spreadsheet
+            - wb_spreadsheet: workbook instance of the current spreadsheet
+            - field: corresponding field name of the current column
+            - col_name: full name of the column (i.e. in the header)
+        > Return: instance of the Demographic object
+        """
         current_demographic = {}
         if type(val) == float:
             current_demographic['estimate'] = val
@@ -633,9 +659,20 @@ class PGSMetadataValidator():
             # Split by ; in case of multiple sub-fields
             l = val.split(';')
             for x in l:
-                name, value = x.split('=')
-                name = name.strip()
-                value = value.strip()
+                values = x.split('=')
+                if len(values) == 2:
+                    name = values[0]
+                    value = values[1]
+                    name = name.strip()
+                    value = value.strip()
+                else:
+                    col = col_name.split('\n')[0]
+                    col.strip(' \t\n')
+                    prefix_msg = f'Wrong format in the column \'{col}\''
+                    if len(values) > 2:
+                        prefix_msg = f'Too many values in the column \'{col}\''
+                    self.report_error(spread_sheet_name,row_id,f'{prefix_msg}. Format expected: \'name=value_or_interval unit\' (e.g. median=5.2 years).')
+                    continue
 
                 # Check if it contains a range item
                 matches = insquarebrackets.findall(value)
