@@ -5,6 +5,7 @@ import urllib.request
 from urllib.error import HTTPError
 from io import BytesIO
 
+from validator.formula import Formula
 from validator.demographic import Demographic
 from validator.efotrait import EFOTrait
 from validator.metric import Metric
@@ -23,7 +24,7 @@ insquarebrackets = re.compile('\\[([^)]+)\\]')
 interval_format = r'^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
 inparentheses = re.compile(r'\((.*)\)')
 
-alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+#alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 template_columns_schema_file = './templates/TemplateColumns2Models_v5a.xlsx'
 
@@ -296,9 +297,9 @@ class PGSMetadataValidator():
             score_name = performance_info[0]
             if not score_name or score_name == '':
                 break
-            # Check that the score name is in the "Score(s)"" spreadsheet
+            # Check that the score name is in the "Score(s)" spreadsheet. Exception if the score is an existing PGS ID.
             if self.scores_spreadsheet_onhold['is_empty'] == False:
-                if not score_name in score_names_list:
+                if not score_name in score_names_list and not re.search('^PGS\d{6}$',score_name):
                     self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
             # If the "Score(s)"" spreadsheet is empty, check that the score name is a PGS ID
             elif re.search('^PGS\d{6}$',score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
@@ -615,9 +616,13 @@ class PGSMetadataValidator():
                     current_metric['estimate'] = float(val)
                     current_metric['unit'] = unit
                 current_metric['se'] = matches_parentheses[0]
-
+            # Extract interval
             else:
-                current_metric['estimate'] = float(val.split('[')[0])
+                try:
+                    current_metric['estimate'] = float(val.split('[')[0])
+                except:
+                    self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value from ({val})')
+                    current_metric['estimate'] = val
                 if len(matches_square) == 1:
                     if re.search(interval_format, matches_square[0]):
                         current_metric['ci'] = matches_square[0]
@@ -841,62 +846,11 @@ def populate_object(wb_spreadsheet, object, object_dict, object_fields):
 
 
 def calculate_formula(spreadsheet,data):
-    """ Parse basic formulas and calculate them """
-    calculated_value = data
-    # Formulas like: =B1+C1, =B1-C1
-    m = re.match('^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)$', data)
-    if m:
-        first_cell  = get_cell_value(spreadsheet, m.group('first_cell'))
-        second_cell = get_cell_value(spreadsheet, m.group('second_cell'))
-        operator = m.group('operator')
-        if operator == '-':
-            calculated_value = int(first_cell) - int(second_cell)
-        elif operator == '+':
-            calculated_value = int(first_cell) + int(second_cell)
-    else:
-        # Formulas like: =SUM(B1:C1), =SUM(B1:C2), =SUM(B1-C2), =SUM(B1+C2)
-        m = re.match('^\=SUM\((?P<first_col>\w)(?P<first_row>\d+)(?P<operator>\-|\+|\:)(?P<last_col>\w)(?P<last_row>\d+)\)$', data)
-        if m:
-            first_col = m.group('first_col')
-            last_col = m.group('last_col')
-            first_index = alpha.index(first_col)
-            last_index = alpha.index(last_col)
-            first_row = int(m.group('first_row'))
-            last_row = int(m.group('last_row'))
-            operator = m.group('operator')
-            # Range of cells
-            if operator == ':':
-                current_col = alpha[first_index]
-                current_index = first_index
-                tmp_calculated_value = 0
-                while current_index <= last_index:
-                    current_row = first_row
-                    while current_row <= last_row:
-                        tmp_calculated_value += get_cell_value(spreadsheet, current_col+str(current_row))
-                        current_row += 1
-                    current_index = alpha.index(current_col)+1
-                    if current_index <= last_index:
-                        current_col = alpha[current_index]
-                calculated_value = tmp_calculated_value
-            # Operation between 2 cells (addition of substraction)
-            else:
-                first_cell  = get_cell_value(spreadsheet, f'{first_col}{first_row}')
-                second_cell = get_cell_value(spreadsheet, f'{last_col}{last_row}')
-                if operator == '-':
-                    calculated_value = int(first_cell) - int(second_cell)
-                elif operator == '+':
-                    calculated_value = int(first_cell) + int(second_cell)
-
+    """ Calculate the Excel formula if there is one """
+    cell_formula = Formula(spreadsheet,data)
+    calculated_value = cell_formula.formula2number()
     return calculated_value
 
-
-def get_cell_value(spreadsheet,cell_id):
-    """ Extract the cell value, using a workbook spreadsheet and a cell ID (e.g. B2)."""
-    if re.search('^\w\d+$',cell_id):
-        #print("Cell "+str(cell_id)+": "+str(spreadsheet[cell_id].value))
-        return spreadsheet[cell_id].value
-    else:
-        return None
 
 def trim_column_label(label):
     """ Shorten the column labels in the report if it is too long. """
