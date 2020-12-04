@@ -17,6 +17,7 @@
 **/__pycache__
 
 # Other
+app.yaml_template
 pgs_metadata_validator.py
 LICENSE.md
 README.md
