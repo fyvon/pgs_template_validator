@@ -1,6 +1,7 @@
 import re, csv
 
 from openpyxl import load_workbook
+import requests
 import urllib.request
 from urllib.error import HTTPError
 from io import BytesIO
@@ -75,7 +76,6 @@ class PGSMetadataValidator():
         self.table_mapschema = {}
         self.fields_infos = {}
         self.mandatory_fields = {}
-        self.loc_localGWAS = './local_GWASCatalog/'
         self.report = { 'error': {}, 'warning': {} }
         self.spreadsheet_names = {}
         self.scores_spreadsheet_onhold = { 'is_empty': False, 'label': '', 'error_msg': None, 'has_pgs_ids': False, 'has_testing_samples': False }
@@ -394,9 +394,6 @@ class PGSMetadataValidator():
 
     def parse_samples_scores(self, spread_sheet_name, current_schema, samples_scores, col_names):
         """ Parse and validate the GWAS and the Score development samples in the Sample spreadsheet. """
-        # Parse GWAS data
-        gwas_samples = load_GWAScatalog(self.loc_localGWAS)
-
         samples = {}
         for row_id, sample_info in samples_scores.items():
             sample_remapped = {}
@@ -411,19 +408,26 @@ class PGSMetadataValidator():
                         val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field, col_name)
                     sample_remapped[field] = val
 
-            # Parse from GWAS Catalog
+            # Try to get sample data from external source
             if ('sample_number' not in sample_remapped.keys()):
-                if ('source_GWAS_catalog' in sample_remapped) and (sample_remapped['source_GWAS_catalog'] in gwas_samples):
-                    gwas_ss = gwas_samples[sample_remapped['source_GWAS_catalog']]
-                    for gwas_study in gwas_ss:
-                        c_sample = sample_remapped.copy()
-                        for field, val in gwas_study.items():
-                            c_sample[field] = val
+                # Fetch data from GWAS Catalog
+                if 'source_GWAS_catalog' in sample_remapped:
+                    gwas_study = get_gwas_study(sample_remapped['source_GWAS_catalog'])
+                    if gwas_study:
+                        for gwas_ancestry in gwas_study:
+                            c_sample = sample_remapped.copy()
+                            for field, val in gwas_ancestry.items():
+                                c_sample[field] = val
 
-                        if row_id in samples:
-                            samples[row_id].append(c_sample)
-                        else:
-                            samples[row_id] = [c_sample]
+                            if row_id in samples:
+                                samples[row_id].append(c_sample)
+                            else:
+                                samples[row_id] = [c_sample]
+                    else:
+                        self.report_error(spread_sheet_name, row_id, f'Can\'t fetch the GWAS information for the study {sample_remapped["source_GWAS_catalog"]}')
+                else:
+                    self.report_error(spread_sheet_name, row_id, f'Missing GWAS Study ID (GCST ID) to fetch the sample information')
+            # Get sample data from spreadsheet
             else:
                 if row_id in samples:
                     samples[row_id].append(sample_remapped)
@@ -478,7 +482,6 @@ class PGSMetadataValidator():
             for col_name in col_names:
                 val = sample_info[col_names[col_name]]
                 val = self.check_and_remove_whitespaces(spread_sheet_name, row_id, col_name, val)
-                #print("## "+col_name+": "+str(val))
                 if (col_name in current_schema) and (val != '') and val != None:
                     field = current_schema[col_name]
                     if field == 'cohorts':
@@ -793,41 +796,60 @@ def get_column_name_index(worksheet, row_index=1):
     return col_names
 
 
-def load_GWAScatalog(outdir):
-    """ Parse the GWAS ancestry file and store its content. """
-    ancestry_filename = 'gwas-catalog-ancestry.csv'
-    if outdir.endswith('/'):
-        loc_local = outdir + ancestry_filename
-    else:
-        loc_local = '%s/%s' % (outdir, ancestry_filename)
+def get_gwas_study(gcst_id):
+    """
+    Get the GWAS Study information related to the PGS sample.
+    Check that all the required data is available
+    > Parameter:
+        - gcst_id: GWAS Study ID (e.g. GCST010127)
+    > Return: list of dictionnaries (1 per ancestry)
+    """
+    gwas_rest_url = 'https://www.ebi.ac.uk/gwas/rest/api/studies/'
+    response = requests.get(f'{gwas_rest_url}{gcst_id}')
+    response_data = response.json()
+    study_data = []
+    if response_data:
+        try:
+            source_PMID = response_data['publicationInfo']['pubmedId']
+            for ancestry in response_data['ancestries']:
 
-    remap_gwas_model = { 'PUBMEDID' : 'source_PMID',
-                         'NUMBER OF INDIVDUALS' : 'sample_number',
-                         'BROAD ANCESTRAL CATEGORY' : 'ancestry_broad',
-                         'COUNTRY OF ORIGIN' : 'ancestry_free',
-                         'COUNTRY OF RECRUITMENT' : 'ancestry_country',
-                         'ADDITONAL ANCESTRY DESCRIPTION' : 'ancestry_additional'
-                       }
-    gwas_data = {}
-    with open(loc_local, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-        line_count = 0
-        for row in csv_reader:
-            # Skip header
-            if line_count == 0:
-                line_count += 1
-                continue
-            if row["STAGE"] == 'initial':
-                gcst_id = row['STUDY ACCESSION']
-                if not gcst_id in gwas_data:
-                    gwas_data[gcst_id] = []
-                study_data = {}
-                for column in remap_gwas_model:
-                    pgs_model_attr = remap_gwas_model[column]
-                    if row[column] != '':
-                        study_data[pgs_model_attr] = row[column]
-                gwas_data[gcst_id].append(study_data)
-    return gwas_data
+                if ancestry['type'] != 'initial':
+                    continue
+
+                ancestry_data = { 'source_PMID': source_PMID }
+                ancestry_data['sample_number'] = ancestry['numberOfIndividuals']
+
+                # ancestry_broad
+                for ancestralGroup in ancestry['ancestralGroups']:
+                    if not 'ancestry_broad' in ancestry_data:
+                        ancestry_data['ancestry_broad'] = ''
+                    else:
+                        ancestry_data['ancestry_broad'] += ','
+                    ancestry_data['ancestry_broad'] += ancestralGroup['ancestralGroup']
+                # ancestry_free
+                for countryOfOrigin in ancestry['countryOfOrigin']:
+                    if countryOfOrigin['countryName'] != 'NR':
+                        if not 'ancestry_free' in ancestry_data:
+                            ancestry_data['ancestry_free'] = ''
+                        else:
+                            ancestry_data['ancestry_free'] += ','
+                        ancestry_data['ancestry_free'] += countryOfOrigin['countryName']
+
+                # ancestry_country
+                for countryOfRecruitment in ancestry['countryOfRecruitment']:
+                    if countryOfRecruitment['countryName'] != 'NR':
+                        if not 'ancestry_country' in ancestry_data:
+                            ancestry_data['ancestry_country'] = ''
+                        else:
+                            ancestry_data['ancestry_country'] += ','
+                        ancestry_data['ancestry_country'] += countryOfRecruitment['countryName']
+                # ancestry_additional
+                # Not found in the REST API
+
+                study_data.append(ancestry_data)
+        except:
+            print(f'Error: can\'t fetch GWAS results for {gcst_id}')
+    return study_data
 
 
 def populate_object(wb_spreadsheet, object, object_dict, object_fields):
