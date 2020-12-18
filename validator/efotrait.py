@@ -8,10 +8,10 @@ class EFOTrait():
 
     def populate_from_efo(self):
         response = requests.get('https://www.ebi.ac.uk/ols/api/ontologies/efo/terms?obo_id=%s'%self.id.replace('_', ':'))
-        response = response.json()['_embedded']['terms']
-        if len(response) == 1:
-            response = response[0]
-            self.label = response['label']
-            return True
-        else:
-            return False
+        if response.status_code == 200:
+            response = response.json()['_embedded']['terms']
+            if len(response) == 1:
+                response = response[0]
+                self.label = response['label']
+                return True
+        return False
