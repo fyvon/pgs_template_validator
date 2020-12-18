@@ -86,7 +86,7 @@ class PGSMetadataValidator():
         Load the Excel spreadsheet into an openpyxl workbook
         > Return type: openpyxl workbooks
         """
-        url = self.filepath
+        url = self.filepath.replace(' ','%20')
         try:
             with urllib.request.urlopen(str(url)) as url:
                 stream = url.read()
@@ -230,7 +230,7 @@ class PGSMetadataValidator():
                 if col_name in current_schema and val != '' and val:
                     field = current_schema[col_name]
                     if field == trait_efo_field:
-                        efo_list = val.split(',')
+                        efo_list = [ self.check_and_remove_whitespaces(spread_sheet_name, row_id, col_name, x) for x in val.split(',') ]
                         parsed_score[field] = efo_list
                     else:
                         parsed_score[field] = val
@@ -491,14 +491,19 @@ class PGSMetadataValidator():
                     sample_remapped[field] = val
 
             for sample_value in ['sample_number', 'sample_cases', 'sample_controls']:
-                if re.search('^\=',str(sample_remapped[sample_value])):
-                    print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
-                    sample_remapped[sample_value] = calculate_formula(self.workbook_samples,sample_remapped[sample_value])
-                try:
-                    sample_remapped[sample_value] = int(float(sample_remapped[sample_value]))
-                except ValueError:
-                    self.report_error(spread_sheet_name, row_id, "Can't parse the data from the column '"+self.fields_infos[spread_sheet_name][sample_value]['label']+"': "+str(sample_remapped[sample_value]))
-                    continue
+                # Check value exist for the field
+                if sample_value in sample_remapped.keys():
+                    if re.search('^\=',str(sample_remapped[sample_value])):
+                        print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
+                        sample_remapped[sample_value] = calculate_formula(self.workbook_samples,sample_remapped[sample_value])
+                    try:
+                        sample_remapped[sample_value] = int(float(sample_remapped[sample_value]))
+                    except ValueError:
+                        self.report_error(spread_sheet_name, row_id, "Can't parse the data from the column '"+self.fields_infos[spread_sheet_name][sample_value]['label']+"': "+str(sample_remapped[sample_value]))
+                        continue
+                else:
+                    self.report_warning(spread_sheet_name, row_id, "Missing '"+self.fields_infos[spread_sheet_name][sample_value]['label']+"' value")
+
 
             sample_object = Sample()
             sample_object = populate_object(self.workbook_samples, sample_object, sample_remapped, self.fields_infos[spread_sheet_name])

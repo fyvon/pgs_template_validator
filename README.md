@@ -4,6 +4,12 @@ Standalone Python validator for the **PGS Catalog Curation Template** (Metadata)
 
 For more information about the PGS Catalog submission and its template, go to this page: [https://www.pgscatalog.org/submit/](https://www.pgscatalog.org/submit/)
 
+## Installation
+
+```
+pip install -r requirements.txt
+```
+
 ## Example of command
 
 ### As command line
