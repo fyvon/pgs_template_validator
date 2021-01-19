@@ -595,7 +595,7 @@ class PGSMetadataValidator():
             current_metric['name'] = 'Beta'
             current_metric['name_short'] = 'β'
         else:
-            fname, val = val.split('=')
+            fname, val = val.split('=', 1)
             current_metric['name'] = fname.strip()
 
         # Parse out the confidence interval and estimate
@@ -604,19 +604,23 @@ class PGSMetadataValidator():
         else:
             val = str(val)
             matches_square = insquarebrackets.findall(val)
-            #Check if an alternative metric has been declared
-            if '=' in val:
-                mname, val = [x.strip() for x in val.split('=')]
-                # Check if it has short + long name
-                matches_parentheses = inparentheses.findall(mname)
-                if len(matches_parentheses) == 1:
-                    current_metric['name'] = mname.split('(')[0]
-                    current_metric['name_short'] = matches_parentheses[0]
+            # # Check if an alternative metric has been declared
+            # if '=' in val:
+            #     mname, val = [x.strip() for x in val.split('=')]
+            #     # Check if it has short + long name
+            #     matches_parentheses = inparentheses.findall(mname)
+            #     if len(matches_parentheses) == 1:
+            #         current_metric['name'] = mname.split('(')[0]
+            #         current_metric['name_short'] = matches_parentheses[0]
 
             # Check if SE is reported
             matches_parentheses = inparentheses.findall(val)
             if len(matches_parentheses) == 1:
                 val = val.split('(')[0].strip()
+                # Check extra character/data after the parenthesis
+                extra = val.strip().split(')')
+                if len(extra) > 1:
+                    self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the parenthesis for: {val}')
                 try:
                     current_metric['estimate'] = float(val)
                 except:
@@ -628,9 +632,14 @@ class PGSMetadataValidator():
             else:
                 try:
                     current_metric['estimate'] = float(val.split('[')[0])
+                    # Check extra character/data after the brackets
+                    extra = val.strip().split(']')
+                    if len(extra) > 1:
+                        self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the interval for: {val}')
                 except:
                     self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value from ({val})')
                     current_metric['estimate'] = val
+                
                 if len(matches_square) == 1:
                     if re.search(interval_format, matches_square[0]):
                         current_metric['ci'] = matches_square[0]
@@ -638,7 +647,6 @@ class PGSMetadataValidator():
                         min_ci = float(min_ci)
                         max_ci = float(max_ci)
                         estimate = float(current_metric['estimate'])
-                        # Check that the estimate is within the interval
                         if not min_ci <= estimate <= max_ci:
                             self.report_error(spread_sheet_name,row_id,f'The estimate value ({estimate}) is not within its the confidence interval [{min_ci} - {max_ci}]')
                     else:
