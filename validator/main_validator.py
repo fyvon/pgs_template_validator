@@ -647,6 +647,7 @@ class PGSMetadataValidator():
                         min_ci = float(min_ci)
                         max_ci = float(max_ci)
                         estimate = float(current_metric['estimate'])
+                        # Check that the estimate is within the interval
                         if not min_ci <= estimate <= max_ci:
                             self.report_error(spread_sheet_name,row_id,f'The estimate value ({estimate}) is not within its the confidence interval [{min_ci} - {max_ci}]')
                     else:
