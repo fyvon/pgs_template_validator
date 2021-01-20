@@ -635,7 +635,9 @@ class PGSMetadataValidator():
                     # Check extra character/data after the brackets
                     extra = val.strip().split(']')
                     if len(extra) > 1:
-                        self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the interval for: {val}')
+                        # Check if second part has content
+                        if (extra[1] != ''):
+                            self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the interval for: "{val}"')
                 except:
                     self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value from ({val})')
                     current_metric['estimate'] = val
