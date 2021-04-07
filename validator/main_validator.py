@@ -467,7 +467,6 @@ class PGSMetadataValidator():
         """ Parse and validate the testing samples in the Sample spreadsheet. """
         # Extract data Testing samples
         sample_sets_list = []
-        self.mandatory_fields[spread_sheet_name].append('cohorts')
 
         for row_id, sample_info in samples_testing.items():
             sampleset = sample_info[2]
@@ -489,6 +488,9 @@ class PGSMetadataValidator():
                     elif field in ['sample_age', 'followup_time']:
                         val = self.str2demographic(val, row_id, spread_sheet_name, self.workbook_samples, field, col_name)
                     sample_remapped[field] = val
+            # Cohorts are not mandatory for the testing samples
+            if 'cohorts' not in sample_remapped:
+                self.report_warning(spread_sheet_name, row_id, "The cohorts are missing [testing sample]")
 
             for sample_value in ['sample_number', 'sample_cases', 'sample_controls']:
                 # Check value exist for the field
