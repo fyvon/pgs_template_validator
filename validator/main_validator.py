@@ -1,4 +1,4 @@
-import re, csv
+import os, re, csv
 
 from openpyxl import load_workbook
 import requests
@@ -86,19 +86,30 @@ class PGSMetadataValidator():
         Load the Excel spreadsheet into an openpyxl workbook
         > Return type: openpyxl workbooks
         """
-        url = self.filepath.replace(' ','%20')
+        from google.cloud import storage
+        workbook = None
         try:
-            with urllib.request.urlopen(str(url)) as url:
-                stream = url.read()
-                workbook = load_workbook(filename=BytesIO(stream))
-                return workbook
+            # Google cloud storage
+            storage_client = storage.Client.from_service_account_json(os.environ['GS_SERVICE_ACCOUNT_SETTINGS'])
+            # Fetch the required bucket
+            bucket = storage_client.get_bucket(os.environ['GS_BUCKET_NAME'])
+            # Fetch the data file object ("blob")
+            blob = bucket.get_blob(self.filepath)
+            # Download the file content
+            if blob:
+                data = blob.download_as_bytes()
+                workbook = load_workbook(filename=BytesIO(data))
+            else:
+                self.report_error('General',None,'Can\'t find the uploaded file')
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 msg = 'The upload of the file failed'
             else:
                 msg = e.reason
             self.report_error('General',None,msg)
-            return None
+        except Exception as e:
+            self.report_error('General',None,e)
+        return workbook
 
 
     #========================#
@@ -605,7 +616,7 @@ class PGSMetadataValidator():
             current_metric['estimate'] = val
         else:
             val = str(val)
-            matches_square = insquarebrackets.findall(val)
+            # matches_square = insquarebrackets.findall(val)
             # # Check if an alternative metric has been declared
             # if '=' in val:
             #     mname, val = [x.strip() for x in val.split('=')]
@@ -644,6 +655,7 @@ class PGSMetadataValidator():
                     self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value from ({val})')
                     current_metric['estimate'] = val
                 
+                matches_square = insquarebrackets.findall(val)
                 if len(matches_square) == 1:
                     if re.search(interval_format, matches_square[0]):
                         current_metric['ci'] = matches_square[0]
@@ -687,10 +699,8 @@ class PGSMetadataValidator():
             for x in l:
                 values = x.split('=')
                 if len(values) == 2:
-                    name = values[0]
-                    value = values[1]
-                    name = name.strip()
-                    value = value.strip()
+                    name = values[0].strip()
+                    value = values[1].strip()
                 else:
                     col = col_name.split('\n')[0]
                     col.strip(' \t\n')

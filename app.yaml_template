@@ -15,4 +15,6 @@ handlers:
   script: auto
 
 env_variables:
-    STORAGE_ROOT_URL: '<storage_url>'
+  STORAGE_ROOT_URL: '<storage_url>'
+  GS_SERVICE_ACCOUNT_SETTINGS: 'pgs-catalog-cred.json'
+  GS_BUCKET_NAME: '<gs_pgs_bucket_name>'
