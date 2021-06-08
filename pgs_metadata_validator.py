@@ -6,7 +6,6 @@ def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-f", help='The path to the PGS Catalog metadata file to be validated', required=True, metavar='PGS_METADATA_FILE_NAME')
     argparser.add_argument("-r", help='Flag to indicate if the file is remote (accessible via the Google Cloud Storage)')
-    #argparser.add_argument('--log_dir', help='The name of the log directory where the log file(s) will be stored', required=True)
 
     args = argparser.parse_args()
 
@@ -26,6 +25,18 @@ def main():
     if extension != expected_file_extension:
          print(f'The expected file extension is [.{expected_file_extension}] but the given file name is "{filename}".')
          exit(1)
+
+    if metadata_is_remote:
+        app_settings = os.path.join('./', 'app.yaml')
+        if os.path.exists(app_settings):
+            import yaml
+            with open(app_settings) as secrets_file:
+                secrets = yaml.load(secrets_file, Loader=yaml.FullLoader)
+                for keyword in secrets['env_variables']:
+                    os.environ[keyword] = secrets['env_variables'][keyword]
+        else:
+            print("Error: missing app.yaml file")
+            exit(1)
 
     metadata_validator = PGSMetadataValidator(metadata_filename, metadata_is_remote)
     metadata_validator.parse_spreadsheets()

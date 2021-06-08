@@ -30,7 +30,7 @@ def robots_dot_txt():
 
 @app.route('/', methods=['GET'])
 def home():
-    return "<h1>Distant Reading Archive</h1><p>This site is a prototype API for distant reading of science fiction novels.</p>"
+    return "<h1>PGS Catalog metadata validator</h1><p>This service validates the Metadata files schema and content.</p>"
 
 
 @app.route('/validate', methods=['POST'])
@@ -52,10 +52,7 @@ def post_file():
         response['error']['General'] = [ error_msg ]
         return jsonify(response)
 
-    url_root = os.environ['STORAGE_ROOT_URL']
-
-    url = f'{url_root}{filename}'
-    metadata_validator = PGSMetadataValidator(url, 1)
+    metadata_validator = PGSMetadataValidator(filename, 1)
     loaded_spreadsheets = metadata_validator.parse_spreadsheets()
     if loaded_spreadsheets:
         metadata_validator.parse_publication()
