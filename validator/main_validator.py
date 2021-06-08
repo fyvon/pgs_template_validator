@@ -25,9 +25,8 @@ insquarebrackets = re.compile('\\[([^)]+)\\]')
 interval_format = r'^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
 inparentheses = re.compile(r'\((.*)\)')
 
-#alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-template_columns_schema_file = './templates/TemplateColumns2Models_v5a.xlsx'
+template_columns_schema_file = './templates/TemplateColumns2Models.xlsx'
 
 # Extra fieds information (not present in the Excel template schema)
 metric_fields_infos = {
@@ -320,7 +319,10 @@ class PGSMetadataValidator():
             if not sampleset in self.parsed_samplesets:
                 self.parsed_samplesets.append(sampleset)
 
-            parsed_performance = {}
+            parsed_performance = {
+                'score_name': score_name,
+                'sampleset': sampleset
+            }
             parsed_metrics = []
 
             for col_name in col_names:
@@ -507,7 +509,7 @@ class PGSMetadataValidator():
                 # Check value exist for the field
                 if sample_value in sample_remapped.keys():
                     if re.search('^\=',str(sample_remapped[sample_value])):
-                        print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
+                        # print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
                         sample_remapped[sample_value] = calculate_formula(self.workbook_samples,sample_remapped[sample_value])
                     try:
                         sample_remapped[sample_value] = int(float(sample_remapped[sample_value]))
