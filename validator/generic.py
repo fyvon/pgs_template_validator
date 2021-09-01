@@ -71,7 +71,6 @@ class GenericValidator():
                         except ValueError:
                             is_correct_format = 0
                     elif field_type == 'string':
-                        #if re.search('^.+$', column_data):
                         is_correct_format = 1
                     else:
                         if re.search(field_type, column_data):
