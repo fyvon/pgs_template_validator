@@ -1,4 +1,4 @@
-import os, sys, glob, re
+import os
 import argparse
 from validator.main_validator import PGSMetadataValidator
 
