@@ -22,7 +22,7 @@ from validator.score import Score
 
 # Needed for parsing confidence intervals
 insquarebrackets = re.compile('\\[([^)]+)\\]')
-interval_format = r'^\-?\d+.?\d*\s\-\s\-?\d+.?\d*$'
+interval_format = r'^\-?\d+(e-|\.)?\d*\s\-\s\-?\d+(e-|\.)?\d*$'
 inparentheses = re.compile(r'\((.*)\)')
 
 

@@ -1,6 +1,6 @@
 #!flask/bin/python
 import os
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from validator.main_validator import PGSMetadataValidator
 

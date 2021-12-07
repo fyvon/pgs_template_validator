@@ -7,7 +7,7 @@ class GenericValidator():
         'string' : 'string',
         'integer': 'number (no decimal)',
         'float': 'number (with decimal)',
-        '^\-?\d+\.?\d*\s\-\s\-?\d+\.?\d*$': 'interval (e.g. [1.00 [0.80 - 1.20])',
+        '^\-?\d+(e-|\.)?\d*\s\-\s\-?\d+(e-|\.)?\d*$': 'interval (e.g. 1.00 [0.80 - 1.20] or 0.0231 [-5e-04 - 0.0345])',
         '^EFO\.\d{7}$': 'EFO ID, e.g. EFO_0001645'
     }
 
@@ -71,7 +71,6 @@ class GenericValidator():
                         except ValueError:
                             is_correct_format = 0
                     elif field_type == 'string':
-                        #if re.search('^.+$', column_data):
                         is_correct_format = 1
                     else:
                         if re.search(field_type, column_data):

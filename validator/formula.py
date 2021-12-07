@@ -29,8 +29,16 @@ class Formula():
 
 
     def parse_numeric_formula(self):
-        """ Parse the formulas of the type: =251+42, =251-42 """
-        m = re.match('^\=(?P<first_cell>\d+)(?P<operator>\-|\+)(?P<second_cell>\d+)$', self.cell_data)
+        """ Parse the formulas of the type: =251+42, =251-42, =251+42-25 """
+        cells = re.split('\+|\-', self.cell_data)
+        regex_base = '^\=(?P<first_cell>\d+)(?P<operator>\-|\+)(?P<second_cell>\d+)'
+        # e.g. =251+42
+        if len(cells) == 2:
+            m = re.match(regex_base+'$', self.cell_data)
+        # e.g. =251+42-25
+        elif len(cells) == 3:
+            m = re.match(regex_base+'(?P<operator2>\-|\+)(?P<third_cell>\d+)$', self.cell_data)
+
         if m:
             first_cell  = m.group('first_cell')
             second_cell = m.group('second_cell')
@@ -39,12 +47,28 @@ class Formula():
                 self.calculated_value = int(first_cell) - int(second_cell)
             elif operator == '+':
                 self.calculated_value = int(first_cell) + int(second_cell)
+            # e.g. =251+42-25
+            if len(cells) == 3:
+                third_cell = m.group('third_cell')
+                operator2 = m.group('operator2')
+                if operator2 == '-':
+                    self.calculated_value = self.calculated_value - int(third_cell)
+                else:
+                    self.calculated_value = self.calculated_value + int(third_cell)
             self.is_parsed = True
 
 
     def parse_simple_formula(self):
-        """ Parse the formulas of the type: =B1+C1, =B1-C1 """
-        m = re.match('^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)$', self.cell_data)
+        """ Parse the formulas of the type: =B1+C1, =B1-C1, =B1+C1+D1 """
+        cells = re.split('\+|\-', self.cell_data)
+        regex_base = '^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)'
+        # e.g. =B1+C1
+        if len(cells) == 2:
+            m = re.match(regex_base+'$', self.cell_data)
+        # e.g. =B1+C1+D1
+        elif len(cells) == 3:
+            m = re.match(regex_base+'(?P<operator2>\-|\+)(?P<third_cell>\w\d+)$', self.cell_data)
+
         if m:
             first_cell  = self.get_cell_value(m.group('first_cell'))
             second_cell = self.get_cell_value(m.group('second_cell'))
@@ -53,6 +77,14 @@ class Formula():
                 self.calculated_value = int(first_cell) - int(second_cell)
             elif operator == '+':
                 self.calculated_value = int(first_cell) + int(second_cell)
+            # e.g. =B1+C1+D1
+            if len(cells) == 3:
+                third_cell = self.get_cell_value(m.group('third_cell'))
+                operator2 = m.group('operator2')
+                if operator2 == '-':
+                    self.calculated_value = self.calculated_value - int(third_cell)
+                else:
+                    self.calculated_value = self.calculated_value + int(third_cell)
             self.is_parsed = True
 
 
