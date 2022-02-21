@@ -32,6 +32,7 @@ class Formula():
         """ Parse the formulas of the type: =251+42, =251-42, =251+42-25 """
         cells = re.split('\+|\-', self.cell_data)
         regex_base = '^\=(?P<first_cell>\d+)(?P<operator>\-|\+)(?P<second_cell>\d+)'
+        m = None
         # e.g. =251+42
         if len(cells) == 2:
             m = re.match(regex_base+'$', self.cell_data)
@@ -62,6 +63,7 @@ class Formula():
         """ Parse the formulas of the type: =B1+C1, =B1-C1, =B1+C1+D1 """
         cells = re.split('\+|\-', self.cell_data)
         regex_base = '^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)'
+        m = None
         # e.g. =B1+C1
         if len(cells) == 2:
             m = re.match(regex_base+'$', self.cell_data)
@@ -107,7 +109,9 @@ class Formula():
                 while current_index <= last_index:
                     current_row = first_row
                     while current_row <= last_row:
-                        tmp_calculated_value += self.get_cell_value(current_col+str(current_row))
+                        cell_val = self.get_cell_value(current_col+str(current_row))
+                        if cell_val:
+                            tmp_calculated_value += cell_val
                         current_row += 1
                     current_index = self.alpha.index(current_col)+1
                     if current_index <= last_index:
