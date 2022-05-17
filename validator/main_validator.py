@@ -610,8 +610,11 @@ class PGSMetadataValidator():
             current_metric['name'] = 'Beta'
             current_metric['name_short'] = 'β'
         else:
-            fname, val = val.split('=', 1)
-            current_metric['name'] = fname.strip()
+            if '=' in val:
+                fname, val = val.split('=', 1)
+                current_metric['name'] = fname.strip()
+            else:
+                self.report_error(spread_sheet_name,row_id,f'Metric entry "{val}" is not in the expected format (i.e. "metrics_label = metrics_value")')
 
         # Parse out the confidence interval and estimate
         if type(val) == float:
