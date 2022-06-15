@@ -425,18 +425,21 @@ class PGSMetadataValidator():
             if ('sample_number' not in sample_remapped.keys()):
                 # Fetch data from GWAS Catalog
                 if 'source_GWAS_catalog' in sample_remapped:
-                    gwas_study = get_gwas_study(sample_remapped['source_GWAS_catalog'])
-                    if gwas_study:
-                        for gwas_ancestry in gwas_study:
-                            c_sample = sample_remapped.copy()
-                            for field, val in gwas_ancestry.items():
-                                c_sample[field] = val
+                    try:
+                        gwas_study = get_gwas_study(sample_remapped['source_GWAS_catalog'])
+                        if gwas_study:
+                            for gwas_ancestry in gwas_study:
+                                c_sample = sample_remapped.copy()
+                                for field, val in gwas_ancestry.items():
+                                    c_sample[field] = val
 
-                            if row_id in samples:
-                                samples[row_id].append(c_sample)
-                            else:
-                                samples[row_id] = [c_sample]
-                    else:
+                                if row_id in samples:
+                                    samples[row_id].append(c_sample)
+                                else:
+                                    samples[row_id] = [c_sample]
+                        else:
+                            self.report_error(spread_sheet_name, row_id, f'Can\'t fetch the GWAS information for the study {sample_remapped["source_GWAS_catalog"]}')
+                    except:
                         self.report_error(spread_sheet_name, row_id, f'Can\'t fetch the GWAS information for the study {sample_remapped["source_GWAS_catalog"]}')
                 else:
                     self.report_error(spread_sheet_name, row_id, f'Missing GWAS Study ID (GCST ID) to fetch the sample information')
