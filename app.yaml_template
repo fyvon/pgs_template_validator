@@ -1,4 +1,4 @@
-runtime: python38
+runtime: python310
 
 service: validator
 
@@ -13,6 +13,10 @@ handlers:
   # the entire handlers section) when there are no static files defined.
 - url: /.*
   script: auto
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 2
 
 env_variables:
   STORAGE_ROOT_URL: '<storage_url>'
