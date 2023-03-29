@@ -204,17 +204,23 @@ class PGSMetadataValidator():
         if c_PMID and c_PMID != '':
             c_PMID = str(c_PMID)
             if not re.search('^\d+$',c_PMID):
-                self.report_error(spread_sheet_name,row_id,"PubMed ID format should be only numeric (found: "+c_PMID+")")
+                self.report_error(spread_sheet_name,row_id,f'PubMed ID format should be only numeric or empty (found: "{c_PMID}")')
 
+        # DOI
+        if c_doi and c_doi != '':
+            if not c_doi.startswith('10.'):
+                self.report_error(spread_sheet_name,row_id,f'DOI format should starts with "10." or be empty but should not be an URL (found: "{c_doi}").')
+
+        # Check in EuropePMC
         publication = Publication(c_doi, c_PMID)
         is_in_eupmc = publication.populate_from_eupmc()
         if not is_in_eupmc:
             doi_label = ''
             if c_doi and c_doi != '':
-                doi_label = f' ({c_doi})'
+                doi_label = f' ("{c_doi}")'
             PMID_label = ''
             if c_PMID and c_PMID != '':
-                PMID_label = f' ({c_PMID})'
+                PMID_label = f' ("{c_PMID}")'
             self.report_error(spread_sheet_name,row_id,f'Can\'t find the Publication in EuropePMC: DOI{doi_label} and/or PubMed ID{PMID_label} not found')
         else:
             publication_check_report = publication.check_data(self.fields_infos[spread_sheet_name], self.mandatory_fields[spread_sheet_name])
@@ -489,7 +495,7 @@ class PGSMetadataValidator():
             sampleset = self.check_and_remove_whitespaces(spread_sheet_name, row_id, self.fields_infos[spread_sheet_name]['__sampleset']['label'], sampleset)
 
             if not sampleset in self.parsed_samplesets:
-                    self.report_warning(spread_sheet_name, row_id, f'The Sample Set ID "{sampleset}" is not present in the Performance Metrics spreadsheet')
+                    self.report_warning(spread_sheet_name, row_id, f'The Sample Set ID "{sampleset}" is not present in the \'Performance Metrics\' spreadsheet')
             if not sampleset in sample_sets_list:
                     sample_sets_list.append(sampleset)
 
@@ -541,7 +547,7 @@ class PGSMetadataValidator():
         # Check if all the Sample Sets in the Performance Metrics spreadsheet have associated Samples
         for sampleset in self.parsed_samplesets:
             if not sampleset in sample_sets_list:
-                self.report_warning(spread_sheet_name, None, f'The Sample Set ID "{sampleset}" (presents in the \'Performance Metrics\' spreadsheet) has no linked samples.')
+                self.report_error(spread_sheet_name, None, f'The Sample Set ID "{sampleset}" (presents in the \'Performance Metrics\' spreadsheet) has no linked samples.')
 
         if not self.parsed_samples_testing:
             self.report_error(spread_sheet_name,None,"No correct Sample Testing entries found in this spreadsheet")
@@ -641,7 +647,7 @@ class PGSMetadataValidator():
                 # Check extra character/data after the parenthesis
                 extra = val.strip().split(')')
                 if len(extra) > 1:
-                    self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the parenthesis for: {val}')
+                    self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the parenthesis for: "{val}"')
                 try:
                     current_metric['estimate'] = float(val)
                 except:
@@ -660,7 +666,7 @@ class PGSMetadataValidator():
                         if (extra[1] != ''):
                             self.report_warning(spread_sheet_name,row_id,f'Extra information detected after the interval for: "{val}"')
                 except:
-                    self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value from ({val})')
+                    self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value from ("{val}")')
                     current_metric['estimate'] = val
                 
                 matches_square = insquarebrackets.findall(val)
@@ -673,7 +679,7 @@ class PGSMetadataValidator():
                         estimate = float(current_metric['estimate'])
                         # Check that the estimate is within the interval
                         if not min_ci <= estimate <= max_ci:
-                            self.report_error(spread_sheet_name,row_id,f'The estimate value ({estimate}) is not within its the confidence interval [{min_ci} - {max_ci}]')
+                            self.report_error(spread_sheet_name,row_id,f'The estimate value ("{estimate}") is not within its the confidence interval "[{min_ci} - {max_ci}]"')
                     else:
                         self.report_error(spread_sheet_name,row_id,f'Confidence interval "{val}" is not in the expected format (e.g. "1.00 [0.80 - 1.20]")')
 
@@ -712,10 +718,10 @@ class PGSMetadataValidator():
                 else:
                     col = col_name.split('\n')[0]
                     col.strip(' \t\n')
-                    prefix_msg = f'Wrong format in the column \'{col}\''
+                    prefix_msg = f"Wrong format in the column '{col}'"
                     if len(values) > 2:
-                        prefix_msg = f'Too many values in the column \'{col}\''
-                    self.report_error(spread_sheet_name,row_id,f'{prefix_msg}. Format expected: \'name=value_or_interval unit\' (e.g. median=5.2 years).')
+                        prefix_msg = f"Too many values in the column '{col}'"
+                    self.report_error(spread_sheet_name,row_id,f'{prefix_msg}. Format expected: "name=value_or_interval unit" (e.g. median=5.2 years).')
                     continue
 
                 # Check if it contains a range item
@@ -724,7 +730,7 @@ class PGSMetadataValidator():
                     if re.search(interval_format, matches[0]):
                         current_demographic['range'] = matches[0]
                     else:
-                        self.report_error(spread_sheet_name,row_id,"Data Range for the value '"+str(value)+"' is not in the expected format (e.g. '1.00 [0.80 - 1.20]')")
+                        self.report_error(spread_sheet_name,row_id,f'Data Range for the value "{value}" is not in the expected format (e.g. "1.00 [0.80 - 1.20]")')
                     current_demographic['range_type'] = name.strip()
                 else:
                     if name.lower().startswith('m'):
