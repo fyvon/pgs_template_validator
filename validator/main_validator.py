@@ -651,9 +651,10 @@ class PGSMetadataValidator():
                 try:
                     current_metric['estimate'] = float(val)
                 except:
-                    val, unit = val.split(" ", 1)
-                    current_metric['estimate'] = float(val)
-                    current_metric['unit'] = unit
+                     if " " in val:
+                        val, unit = val.split(" ", 1)
+                        current_metric['estimate'] = float(val)
+                        current_metric['unit'] = unit
                 current_metric['se'] = matches_parentheses[0]
             # Extract interval
             else:
@@ -672,14 +673,17 @@ class PGSMetadataValidator():
                 matches_square = insquarebrackets.findall(val)
                 if len(matches_square) == 1:
                     if re.search(interval_format, matches_square[0]):
-                        current_metric['ci'] = matches_square[0]
-                        [min_ci,max_ci] = current_metric['ci'].split(' - ')
-                        min_ci = float(min_ci)
-                        max_ci = float(max_ci)
-                        estimate = float(current_metric['estimate'])
-                        # Check that the estimate is within the interval
-                        if not min_ci <= estimate <= max_ci:
-                            self.report_error(spread_sheet_name,row_id,f'The estimate value ("{estimate}") is not within its the confidence interval "[{min_ci} - {max_ci}]"')
+                        try:
+                            current_metric['ci'] = matches_square[0]
+                            [min_ci,max_ci] = current_metric['ci'].split(' - ')
+                            min_ci = float(min_ci)
+                            max_ci = float(max_ci)
+                            estimate = float(current_metric['estimate'])
+                            # Check that the estimate is within the interval
+                            if not min_ci <= estimate <= max_ci:
+                                self.report_error(spread_sheet_name,row_id,f'The estimate value ("{estimate}") is not within its the confidence interval "[{min_ci} - {max_ci}]"')
+                        except Exception as e:
+                            self.report_error(spread_sheet_name,row_id,f'Can\'t extract the estimate value and interval from "{val}": {e}')
                     else:
                         self.report_error(spread_sheet_name,row_id,f'Confidence interval "{val}" is not in the expected format (e.g. "1.00 [0.80 - 1.20]")')
 
