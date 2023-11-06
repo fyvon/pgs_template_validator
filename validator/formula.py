@@ -1,5 +1,4 @@
 import re
-import openpyxl
 
 
 class Formula():
@@ -30,37 +29,48 @@ class Formula():
 
     def parse_numeric_formula(self):
         """ Parse the formulas of the type: =251+42, =251-42, =251+42-25 """
-        cells = re.split('\+|\-', self.cell_data)
-        regex_base = '^\=(?P<first_cell>\d+)(?P<operator>\-|\+)(?P<second_cell>\d+)'
-        m = None
-        # e.g. =251+42
-        if len(cells) == 2:
-            m = re.match(regex_base+'$', self.cell_data)
-        # e.g. =251+42-25
-        elif len(cells) == 3:
-            m = re.match(regex_base+'(?P<operator2>\-|\+)(?P<third_cell>\d+)$', self.cell_data)
+        try:
+            cells = re.split('\+|\-', self.cell_data)
+            regex_base = '^\=(?P<cell_1>\d+)'
+            regex_formula = regex_base
+            if len(cells) > 1:
+                regex_formula = regex_formula+'(?P<operator_1>\-|\+)(?P<cell_2>\d+)'
+                # e.g. =251+42-25
+                if len(cells) > 2:
+                    for idx in range(2,len(cells)):
+                        next_idx = idx + 1
+                        regex_formula =  regex_formula+f'(?P<operator_{idx}>\-|\+)(?P<cell_{next_idx}>\d+)'
+            regex_formula = regex_formula+'$'
+            m = re.match(regex_formula, self.cell_data)
 
-        if m:
-            first_cell  = m.group('first_cell')
-            second_cell = m.group('second_cell')
-            operator = m.group('operator')
-            if operator == '-':
-                self.calculated_value = int(first_cell) - int(second_cell)
-            elif operator == '+':
-                self.calculated_value = int(first_cell) + int(second_cell)
-            # e.g. =251+42-25
-            if len(cells) == 3:
-                third_cell = m.group('third_cell')
-                operator2 = m.group('operator2')
-                if operator2 == '-':
-                    self.calculated_value = self.calculated_value - int(third_cell)
+            if m:
+                val_a = 0
+                if len(cells) == 1:
+                    val_a = int(m.group(f'cell_1'))
                 else:
-                    self.calculated_value = self.calculated_value + int(third_cell)
-            self.is_parsed = True
+                    last_idx = None
+                    for idx in range(1,len(cells)):
+                        next_cell = idx+1
+                        operator = m.group(f'operator_{idx}')
+                        if last_idx != idx:
+                            val_a = m.group(f'cell_{idx}')
+                        val_b = m.group(f'cell_{next_cell}')
+                        last_idx = next_cell
+                        if operator == '-':
+                            val_a = int(val_a) - int(val_b)
+                        elif operator == '+':
+                            val_a = int(val_a) + int(val_b)
+                self.calculated_value = val_a
+                if isinstance(self.calculated_value, int):
+                    self.is_parsed = True
+        except Exception as e:
+            print(f"###### Cell value '{self.cell_data}' is not numeric: {e}")
+
 
 
     def parse_simple_formula(self):
         """ Parse the formulas of the type: =B1+C1, =B1-C1, =B1+C1+D1 """
+        print(f"!!!! {self.cell_data} -> parse_simple_formula")
         cells = re.split('\+|\-', self.cell_data)
         regex_base = '^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)'
         m = None
@@ -87,7 +97,8 @@ class Formula():
                     self.calculated_value = self.calculated_value - int(third_cell)
                 else:
                     self.calculated_value = self.calculated_value + int(third_cell)
-            self.is_parsed = True
+            if isinstance(self.calculated_value, int):
+                self.is_parsed = True
 
 
     def parse_sum_formula(self):
@@ -125,7 +136,8 @@ class Formula():
                     self.calculated_value = int(first_cell) - int(second_cell)
                 elif operator == '+':
                     self.calculated_value = int(first_cell) + int(second_cell)
-            self.is_parsed = True
+            if isinstance(self.calculated_value, int):
+                self.is_parsed = True
 
 
     def get_cell_value(self,cell_id):
