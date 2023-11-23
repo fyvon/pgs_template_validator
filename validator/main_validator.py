@@ -203,7 +203,7 @@ class PGSMetadataValidator():
         # PubMed ID
         if c_PMID and c_PMID != '':
             c_PMID = str(c_PMID)
-            if not re.search('^\d+$',c_PMID):
+            if not re.search('^\d+(?:\.0+)?$',c_PMID):
                 self.report_error(spread_sheet_name,row_id,f'PubMed ID format should be only numeric or empty (found: "{c_PMID}")')
 
         # DOI

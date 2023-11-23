@@ -62,7 +62,8 @@ class GenericValidator():
                         column_type_label = field_type
 
                     if field_type == 'integer':
-                        if re.search('^-?\d+$', column_data):
+                        # Also allow float finishing by .0 and .00
+                        if re.search('^-?\d+(?:\.0+)?$', column_data):
                             is_correct_format = 1
                     elif field_type == 'float':
                         try:
