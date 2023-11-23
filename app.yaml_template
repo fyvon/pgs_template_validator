@@ -1,4 +1,4 @@
-runtime: python310
+runtime: python311
 
 service: validator
 
@@ -15,7 +15,7 @@ handlers:
   script: auto
 
 automatic_scaling:
-  min_instances: 1
+  min_instances: 0
   max_instances: 2
 
 env_variables:
