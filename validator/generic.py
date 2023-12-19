@@ -84,6 +84,16 @@ class GenericValidator():
                         self.add_error_report(f'The content of the {self.type} column \'{column_label}\' (i.e.: "{error_value}") is not in the required format/type ({column_type_label}) or has unexpected special character(s).')
 
 
+    def check_value(self, field:str, allowed_values:list):
+        """ Check that the value is found in the list of allowed values. """
+        object_attrs = self.object.__dict__.keys()
+        if field in self.fields_infos.keys() and field in object_attrs:
+           column_label = self.fields_infos[field]['label']
+           value = str(getattr(self.object, field))
+           if not value in allowed_values:
+               self.add_error_report(f'The value \'{value}\' of the column \'{column_label}\' is not in the list of allowed values: [{", ".join(allowed_values)}].')
+
+
     def check_whitespaces(self, label, c_data):
         """ Check trailing spaces/tabs and remove them """
         if str(c_data).startswith((' ','\t')) or str(c_data).endswith((' ','\t')):
