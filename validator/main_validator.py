@@ -4,6 +4,7 @@ from openpyxl import load_workbook
 import urllib.request
 from urllib.error import HTTPError
 from io import BytesIO
+import logging
 
 from validator.formula import Formula
 from validator.demographic import Demographic
@@ -14,6 +15,8 @@ from validator.publication import Publication
 from validator.sample import Sample
 from validator.score import Score
 from validator.request.connector import DefaultConnector, ConnectorException
+
+logger = logging.getLogger(__name__)
 
 #---------------------#
 #  General variables  #
@@ -870,7 +873,7 @@ class PGSMetadataValidator():
 
                     study_data.append(ancestry_data)
         except Exception as e:
-            print(f'Error: can\'t fetch GWAS results for {gcst_id}: {str(e)}')
+            logger.debug(f'Error: can\'t fetch GWAS results for {gcst_id}: {str(e)}')
 
         return study_data
 

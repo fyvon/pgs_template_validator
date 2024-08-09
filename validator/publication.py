@@ -1,5 +1,8 @@
 from validator.generic import GenericValidator
 from validator.request.connector import Connector, NotFound
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Publication():
@@ -13,7 +16,7 @@ class Publication():
         try:
             result = connector.get_publication(doi=self.doi, pmid=self.PMID)
         except NotFound as e:
-            print(e)
+            logger.debug(e)
 
         if result:
             if not self.doi:

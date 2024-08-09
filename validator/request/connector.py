@@ -1,6 +1,10 @@
 from abc import abstractmethod, ABC
 import importlib
 from validator.request.config import URLS
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectorException(Exception):
@@ -87,12 +91,20 @@ class DefaultConnector(Connector):
             print('"requests" module is missing.')
             raise e
 
-    def request(self, url, params=None) -> dict:
+    def __do_request(self, url, params=None) -> dict:
         r = self.requests.get(url, params=params)
         if r.status_code == 404:
-            raise NotFound(url=url)
+            raise NotFound('Status code: %d (%s)' % (r.status_code, url), url)
         if 500 <= r.status_code < 600:
             raise ServiceNotWorking('Status code: %d (%s)' % (r.status_code, url), url)
         if r.status_code != 200:
             raise UnknownError('Status code: %d (%s)' % (r.status_code, url), url)
         return r.json()
+
+    def request(self, url, params=None) -> dict:
+        try:
+            return self.__do_request(url, params)
+        except ConnectorException as e:
+            logger.debug("Exception: {}. URL: {}".format(str(e), e.url))
+            raise e
+
