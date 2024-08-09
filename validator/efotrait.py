@@ -1,4 +1,5 @@
-import requests
+from validator.request.connector import Connector, ConnectorException
+
 
 class EFOTrait():
 
@@ -6,12 +7,11 @@ class EFOTrait():
         self.id = id
         self.label = None
 
-    def populate_from_efo(self):
-        response = requests.get('https://www.ebi.ac.uk/ols/api/ontologies/efo/terms?obo_id=%s'%self.id.replace('_', ':'))
-        if response.status_code == 200:
-            response = response.json()['_embedded']['terms']
-            if len(response) == 1:
-                response = response[0]
-                self.label = response['label']
-                return True
-        return False
+    def populate_from_efo(self, connector: Connector):
+        try:
+            response = connector.get_efo_trait(self.id)
+            self.label = response['label']
+            return True
+        except ConnectorException as e:
+            print(e)
+            return False

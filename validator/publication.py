@@ -1,5 +1,6 @@
-import requests
 from validator.generic import GenericValidator
+from validator.request.connector import Connector, NotFound
+
 
 class Publication():
 
@@ -7,21 +8,12 @@ class Publication():
         self.doi = doi
         self.PMID = pubmed_id
 
-    def populate_from_eupmc(self):
-        payload = {'format' : 'json'}
-        eupmc_url = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search'
+    def populate_from_eupmc(self, connector: Connector):
         result = None
         try:
-            payload['query'] = 'doi:' + self.doi
-            query_result = requests.get(eupmc_url, params=payload)
-            result_json = query_result.json()
-            result = result_json['resultList']['result'][0]
-        except:
-            payload['query'] = 'ext_id:' + str(self.PMID)
-            query_result = requests.get(eupmc_url, params=payload)
-            result_json = query_result.json()
-            if result_json['resultList']['result']:
-                result = result_json['resultList']['result'][0]
+            result = connector.get_publication(doi=self.doi, pmid=self.PMID)
+        except NotFound as e:
+            print(e)
 
         if result:
             if not self.doi:
