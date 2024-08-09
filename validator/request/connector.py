@@ -42,7 +42,7 @@ class Connector(ABC):
         if doi:
             params['query'] = 'doi:' + doi
         elif pmid:
-            params['query'] = 'ext_id:' + pmid
+            params['query'] = 'ext_id:' + str(pmid)
         else:
             return {}
         response = self.request(self.urls["europepmc"], params)
