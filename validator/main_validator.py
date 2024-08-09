@@ -124,7 +124,7 @@ class PGSMetadataValidator():
         loaded_spreadsheets = False
         loc_excel = self.filepath
         if loc_excel != None:
-            print("REMOTE: "+str(self.is_remote))
+            #print("REMOTE: "+str(self.is_remote))
             if self.is_remote:
                 workbook = self.load_workbook_from_url()
             else:
@@ -133,7 +133,7 @@ class PGSMetadataValidator():
             if workbook:
                 loaded_spreadsheets = True
 
-                print(str(workbook.sheetnames))
+                #print(str(workbook.sheetnames))
 
                 # Check if all the spreadsheets exist in the file
                 for model in self.spreadsheet_names:
