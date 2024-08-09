@@ -39,6 +39,13 @@ def main():
             exit(1)
 
     metadata_validator = PGSMetadataValidator(metadata_filename, metadata_is_remote)
+
+    pre_warnings = metadata_validator.test_external_services()
+    if len(pre_warnings) > 0:
+        print("#### Warning(s) ####")
+        for warning in pre_warnings:
+            print(' - {}'.format(warning))
+
     metadata_validator.parse_spreadsheets()
     metadata_validator.parse_publication()
     metadata_validator.parse_scores()

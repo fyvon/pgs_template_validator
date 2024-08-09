@@ -13,8 +13,7 @@ from validator.performance import PerformanceMetric
 from validator.publication import Publication
 from validator.sample import Sample
 from validator.score import Score
-from validator.request.connector import DefaultConnector
-
+from validator.request.connector import DefaultConnector, ConnectorException
 
 #---------------------#
 #  General variables  #
@@ -874,6 +873,27 @@ class PGSMetadataValidator():
             print(f'Error: can\'t fetch GWAS results for {gcst_id}: {str(e)}')
 
         return study_data
+
+    def test_external_services(self):
+        errors = []
+        error_format_string = '%s returned an unexpected error. Check the service status.'
+        try:
+            self.connector.get_publication(pmid=1)
+        except ConnectorException:
+            errors.append(error_format_string % 'Europe PMC')
+
+        try:
+            self.connector.get_efo_trait('EFO_0001645')
+        except ConnectorException:
+            errors.append(error_format_string % 'Ontology Lookup Service')
+
+        try:
+            self.connector.get_gwas('GCST90132222')
+        except ConnectorException:
+            errors.append(error_format_string % 'GWAS Catalog')
+
+        return errors
+
 
 #=======================#
 #  Independent methods  #
