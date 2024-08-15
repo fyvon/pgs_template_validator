@@ -13,4 +13,5 @@ class EFOTrait():
             self.label = response['label']
             return True
         except ConnectorException as e:
+            connector.logger.debug(e, __name__)
             return False

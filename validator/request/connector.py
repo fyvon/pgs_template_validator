@@ -4,9 +4,6 @@ from validator.request.config import URLS
 import logging
 
 
-logger = logging.getLogger(__name__)
-
-
 class ConnectorException(Exception):
     def __init__(self, message=None, url=None):
         super().__init__(message)
@@ -28,11 +25,37 @@ class UnknownError(ConnectorException):
     pass
 
 
+class Logger(ABC):
+    """Logger abstract class for logging any message related to the Connector."""
+    def debug(self, message, name=None):
+        pass
+
+    def error(self, message, name=None):
+        pass
+
+    def info(self, message, name=None):
+        pass
+
+
+class DefaultLogger(Logger):
+    """Default implementation of Logger using the 'logging' Python library."""
+
+    def debug(self, message, name=None):
+        logging.getLogger(name).debug(message)
+
+    def error(self, message, name=None):
+        logging.getLogger(name).error(message)
+
+    def info(self, message, name=None):
+        logging.getLogger(name).info(message)
+
+
 class Connector(ABC):
     """This class handles connections to external web resources and validate the returned responses.
     It is abstract, the method "request" must be implemented in subclasses depending on the environment."""
-    def __init__(self, urls: dict = None):
+    def __init__(self, urls: dict = None, logger: Logger = DefaultLogger()):
         self.urls = URLS
+        self.logger = logger
         if urls:
             self.urls = self.urls.update(urls)
 
@@ -105,6 +128,6 @@ class DefaultConnector(Connector):
         try:
             return self.__do_request(url, params)
         except ConnectorException as e:
-            logger.debug("Exception: {}. URL: {}".format(str(e), e.url))
+            self.logger.debug("Exception: {}. URL: {}".format(str(e), e.url), __name__)
             raise e
 
