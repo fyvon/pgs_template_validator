@@ -657,7 +657,10 @@ class PGSMetadataValidator():
                 except:
                      if " " in val:
                         val, unit = val.split(" ", 1)
-                        current_metric['estimate'] = float(val)
+                        try:
+                            current_metric['estimate'] = float(val)
+                        except ValueError:
+                            self.report_error(spread_sheet_name, row_id, f'Failed to extract metric estimate value (Expected float but found "{val}"). Is the correct separator (;) used?')
                         current_metric['unit'] = unit
                 current_metric['se'] = matches_parentheses[0]
             # Extract interval
