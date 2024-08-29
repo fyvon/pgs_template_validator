@@ -1,3 +1,5 @@
 **/__pycache__
 app.yaml
 pgs-catalog-cred.json
+dist
+.idea

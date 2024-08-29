@@ -1,11 +1,15 @@
 import os
 import argparse
+import logging
+import sys
+
 from validator.main_validator import PGSMetadataValidator
 
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-f", help='The path to the PGS Catalog metadata file to be validated', required=True, metavar='PGS_METADATA_FILE_NAME')
     argparser.add_argument("-r", help='Flag to indicate if the file is remote (accessible via the Google Cloud Storage)')
+    argparser.add_argument("--debug", help='Toggle debugging mode', default=False, action=argparse.BooleanOptionalAction)
 
     args = argparser.parse_args()
 
@@ -18,6 +22,9 @@ def main():
         if not os.path.isfile(metadata_filename):
             print("File '"+metadata_filename+"' can't be found")
             exit(1)
+
+    if args.debug:
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
     expected_file_extension = 'xlsx'
     filename = os.path.basename(metadata_filename)
@@ -39,6 +46,13 @@ def main():
             exit(1)
 
     metadata_validator = PGSMetadataValidator(metadata_filename, metadata_is_remote)
+
+    pre_warnings = metadata_validator.test_external_services()
+    if len(pre_warnings) > 0:
+        print("#### Warning(s) ####")
+        for warning in pre_warnings:
+            print(' - {}'.format(warning))
+
     metadata_validator.parse_spreadsheets()
     metadata_validator.parse_publication()
     metadata_validator.parse_scores()
