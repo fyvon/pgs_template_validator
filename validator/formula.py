@@ -30,16 +30,16 @@ class Formula():
     def parse_numeric_formula(self):
         """ Parse the formulas of the type: =251+42, =251-42, =251+42-25 """
         try:
-            cells = re.split('\+|\-', self.cell_data)
-            regex_base = '^\=(?P<cell_1>\d+)'
+            cells = re.split('\+|\-', self.cell_data)  # FIXME: invalid escape sequence
+            regex_base = '^\=(?P<cell_1>\d+)'  # FIXME: invalid escape sequence
             regex_formula = regex_base
             if len(cells) > 1:
-                regex_formula = regex_formula+'(?P<operator_1>\-|\+)(?P<cell_2>\d+)'
+                regex_formula = regex_formula+'(?P<operator_1>\-|\+)(?P<cell_2>\d+)'  # FIXME: invalid escape sequence
                 # e.g. =251+42-25
                 if len(cells) > 2:
                     for idx in range(2,len(cells)):
                         next_idx = idx + 1
-                        regex_formula =  regex_formula+f'(?P<operator_{idx}>\-|\+)(?P<cell_{next_idx}>\d+)'
+                        regex_formula =  regex_formula+f'(?P<operator_{idx}>\-|\+)(?P<cell_{next_idx}>\d+)'  # FIXME
             regex_formula = regex_formula+'$'
             m = re.match(regex_formula, self.cell_data)
 
@@ -72,14 +72,14 @@ class Formula():
         """ Parse the formulas of the type: =B1+C1, =B1-C1, =B1+C1+D1 """
         print(f"!!!! {self.cell_data} -> parse_simple_formula")
         cells = re.split('\+|\-', self.cell_data)
-        regex_base = '^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)'
+        regex_base = '^\=(?P<first_cell>\w\d+)(?P<operator>\-|\+)(?P<second_cell>\w\d+)'  # FIXME: invalid escape sequence
         m = None
         # e.g. =B1+C1
         if len(cells) == 2:
             m = re.match(regex_base+'$', self.cell_data)
         # e.g. =B1+C1+D1
         elif len(cells) == 3:
-            m = re.match(regex_base+'(?P<operator2>\-|\+)(?P<third_cell>\w\d+)$', self.cell_data)
+            m = re.match(regex_base+'(?P<operator2>\-|\+)(?P<third_cell>\w\d+)$', self.cell_data)  # FIXME: invalid escape sequence
 
         if m:
             first_cell  = self.get_cell_value(m.group('first_cell'))
@@ -103,7 +103,7 @@ class Formula():
 
     def parse_sum_formula(self):
         """ Parse the formulas of the type: =SUM(B1:C1), =SUM(B1:C2), =SUM(B1-C2), =SUM(B1+C2) """
-        m = re.match('^\=SUM\((?P<first_col>\w)(?P<first_row>\d+)(?P<operator>\-|\+|\:)(?P<last_col>\w)(?P<last_row>\d+)\)$', self.cell_data)
+        m = re.match('^\=SUM\((?P<first_col>\w)(?P<first_row>\d+)(?P<operator>\-|\+|\:)(?P<last_col>\w)(?P<last_row>\d+)\)$', self.cell_data)  # FIXME: invalid escape sequence
         if m:
             first_col = m.group('first_col')
             last_col = m.group('last_col')
@@ -145,10 +145,10 @@ class Formula():
         Extract the cell value, using a workbook spreadsheet and a cell ID (e.g. B2).
         Make recursive calls to 'formula2number()' if the cell's value is a formula itself.
         """
-        if re.search('^\w\d+$',cell_id):
+        if re.search('^\w\d+$',cell_id):  # FIXME: invalid escape sequence
             cell_value = self.spreadsheet[cell_id].value
             # Check if the cell value is also a formula. If so, we calculate the value.
-            if re.search('^\=',str(cell_value)):
+            if re.search('^\=',str(cell_value)):  # FIXME: invalid escape sequence
                 cell_subformula = Formula(self.spreadsheet, cell_value)
                 cell_value = cell_subformula.formula2number()
             return cell_value

@@ -207,7 +207,7 @@ class PGSMetadataValidator():
         if c_PMID and c_PMID != '':
             # Removing potential .0 when PMID is converted to float
             c_PMID = str(c_PMID).removesuffix('.0')
-            if not re.search('^\d+(?:\.0+)?$',c_PMID):
+            if not re.search('^\d+(?:\.0+)?$',c_PMID):  # FIXME: invalid escape sequence
                 self.report_error(spread_sheet_name,row_id,f'PubMed ID format should be only numeric or empty (found: "{c_PMID}")')
 
         # DOI
@@ -319,10 +319,10 @@ class PGSMetadataValidator():
                 break
             # Check that the score name is in the "Score(s)" spreadsheet. Exception if the score is an existing PGS ID.
             if self.scores_spreadsheet_onhold['is_empty'] == False:
-                if not score_name in score_names_list and not re.search('^PGS\d{6}$',score_name):
+                if not score_name in score_names_list and not re.search('^PGS\d{6}$',score_name):  # FIXME: invalid escape sequence
                     self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
             # If the "Score(s)"" spreadsheet is empty, check that the score name is a PGS ID
-            elif re.search('^PGS\d{6}$',score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
+            elif re.search('^PGS\d{6}$',score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:  # FIXME: invalid escape sequence
                 self.scores_spreadsheet_onhold['has_pgs_ids'] = True
 
             sampleset  = performance_info[1]
@@ -462,7 +462,7 @@ class PGSMetadataValidator():
 
         for row_id, sample_list in samples.items():
             for sample in sample_list:
-                if re.search('^\=',str(sample['sample_number'])):
+                if re.search('^\=',str(sample['sample_number'])):  # FIXME: invalid escape sequence
                     sample['sample_number'] = calculate_formula(self.workbook_samples,sample['sample_number'])
                 try:
                     sample['sample_number'] = int(float(sample['sample_number']))
@@ -521,7 +521,7 @@ class PGSMetadataValidator():
             for sample_value in ['sample_number', 'sample_cases', 'sample_controls']:
                 # Check value exist for the field
                 if sample_value in sample_remapped.keys():
-                    if re.search('^\=',str(sample_remapped[sample_value])):
+                    if re.search('^\=',str(sample_remapped[sample_value])):  # FIXME: invalid escape sequence
                         # print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
                         sample_remapped[sample_value] = calculate_formula(self.workbook_samples,sample_remapped[sample_value])
                     try:
@@ -746,7 +746,7 @@ class PGSMetadataValidator():
                 else:
                     if name.lower().startswith('m'):
                         current_demographic['estimate_type'] = name.strip()
-                        with_units = re.match("([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)
+                        with_units = re.match("([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)  # FIXME: invalid escape sequence
                         if with_units:
                             items = with_units.groups()
                             current_demographic['estimate'] = items[0]
@@ -756,7 +756,7 @@ class PGSMetadataValidator():
 
                     elif name.lower().startswith('s'):
                         current_demographic['variability_type'] = name.strip()
-                        with_units = re.match("([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)
+                        with_units = re.match("([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)  # FIXME: invalid escape sequence
                         if with_units:
                             items = with_units.groups()
                             current_demographic['variability']  = items[0]
@@ -931,7 +931,7 @@ def populate_object(wb_spreadsheet, object, object_dict, object_fields):
             if field in object_dict:
                 if object_dict[field] is not None:
                     value = object_dict[field]
-                    if re.search('^\=',str(object_dict[field])):
+                    if re.search('^\=',str(object_dict[field])):  # FIXME: invalid escape sequence
                         value = calculate_formula(wb_spreadsheet,value)
                     setattr(object, field, value)
     return object
