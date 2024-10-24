@@ -203,6 +203,11 @@ class PGSMetadataValidator():
             c_PMID = pinfo[1]
             c_PMID = self.check_and_remove_whitespaces(spread_sheet_name, None, 'PubMed ID', c_PMID)
 
+        # Could have no DOI and PMID (embargoed study)
+        if not c_doi and not c_PMID:
+            self.report_warning(spread_sheet_name, row_id, 'No DOI or PubMed ID provided (required unless not published yet)')
+            return
+
         # PubMed ID
         if c_PMID and c_PMID != '':
             # Removing potential .0 when PMID is converted to float
