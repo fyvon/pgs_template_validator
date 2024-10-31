@@ -27,8 +27,7 @@ insquarebrackets = re.compile('\\[([^)]+)\\]')
 interval_format = r'^\-?\d+(e-|\.)?\d*\s\-\s\-?\d+(e-|\.)?\d*$'
 inparentheses = re.compile(r'\((.*)\)')
 
-
-template_columns_schema_file = './templates/TemplateColumns2Models.xlsx'
+template_columns_schema_file = os.path.join(os.path.dirname(__file__), '../templates/TemplateColumns2Models.xlsx')
 
 # Extra fieds information (not present in the Excel template schema)
 metric_fields_infos = {
