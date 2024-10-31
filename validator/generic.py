@@ -7,8 +7,8 @@ class GenericValidator():
         'string' : 'string',
         'integer': 'number (no decimal)',
         'float': 'number (with decimal)',
-        '^\-?\d+(e-|\.)?\d*\s\-\s\-?\d+(e-|\.)?\d*$': 'interval (e.g. 1.00 [0.80 - 1.20] or 0.0231 [-5e-04 - 0.0345])',  # FIXME: invalid escape sequence
-        '^EFO\.\d{7}$': 'EFO ID, e.g. EFO_0001645'  # FIXME: invalid escape sequence
+        r'^\-?\d+(e-|\.)?\d*\s\-\s\-?\d+(e-|\.)?\d*$': 'interval (e.g. 1.00 [0.80 - 1.20] or 0.0231 [-5e-04 - 0.0345])',
+        r'^EFO\.\d{7}$': 'EFO ID, e.g. EFO_0001645'
     }
 
     error_value_max_length = 25
@@ -63,7 +63,7 @@ class GenericValidator():
 
                     if field_type == 'integer':
                         # Also allow float finishing by .0 and .00
-                        if re.search('^-?\d+(?:\.0+)?$', column_data):  # FIXME: invalid escape sequence
+                        if re.search(r'^-?\d+(?:\.0+)?$', column_data):
                             is_correct_format = 1
                     elif field_type == 'float':
                         try:
