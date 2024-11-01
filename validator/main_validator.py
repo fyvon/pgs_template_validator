@@ -1,20 +1,21 @@
-import os, re, csv
+import logging
+import os
+import re
+import urllib.request
+from io import BytesIO
+from urllib.error import HTTPError
 
 from openpyxl import load_workbook
-import urllib.request
-from urllib.error import HTTPError
-from io import BytesIO
-import logging
 
-from validator.formula import Formula
 from validator.demographic import Demographic
 from validator.efotrait import EFOTrait
+from validator.formula import Formula
 from validator.metric import Metric
 from validator.performance import PerformanceMetric
 from validator.publication import Publication
+from validator.request.connector import DefaultConnector, ConnectorException
 from validator.sample import Sample
 from validator.score import Score
-from validator.request.connector import DefaultConnector, ConnectorException
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +24,13 @@ logger = logging.getLogger(__name__)
 #---------------------#
 
 # Needed for parsing confidence intervals
-insquarebrackets = re.compile('\\[([^)]+)\\]')
+insquarebrackets = re.compile(r'\[([^\)]+)\]')  # this regex might give redundant character escape warning, but they are kept for clarity
 interval_format = r'^\-?\d+(e-|\.)?\d*\s\-\s\-?\d+(e-|\.)?\d*$'
 inparentheses = re.compile(r'\((.*)\)')
 
+template_columns_schema_file = os.path.join(os.path.dirname(__file__), '../templates/TemplateColumns2Models.xlsx')
 
-template_columns_schema_file = './templates/TemplateColumns2Models.xlsx'
-
-# Extra fieds information (not present in the Excel template schema)
+# Extra fields information (not present in the Excel template schema)
 metric_fields_infos = {
     'name': {'type': 'string', 'label': 'Metric - name'},
     'name_short': {'type': 'string', 'label': 'Metric - short name'},
@@ -212,7 +212,7 @@ class PGSMetadataValidator():
         if c_PMID and c_PMID != '':
             # Removing potential .0 when PMID is converted to float
             c_PMID = str(c_PMID).removesuffix('.0')
-            if not re.search('^\d+(?:\.0+)?$',c_PMID):
+            if not re.search(r'^\d+(?:\.0+)?$', c_PMID):
                 self.report_error(spread_sheet_name,row_id,f'PubMed ID format should be only numeric or empty (found: "{c_PMID}")')
 
         # DOI
@@ -324,10 +324,10 @@ class PGSMetadataValidator():
                 break
             # Check that the score name is in the "Score(s)" spreadsheet. Exception if the score is an existing PGS ID.
             if self.scores_spreadsheet_onhold['is_empty'] == False:
-                if not score_name in score_names_list and not re.search('^PGS\d{6}$',score_name):
+                if not score_name in score_names_list and not re.search(r'^PGS\d{6}$', score_name):
                     self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
             # If the "Score(s)"" spreadsheet is empty, check that the score name is a PGS ID
-            elif re.search('^PGS\d{6}$',score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
+            elif re.search(r'^PGS\d{6}$', score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
                 self.scores_spreadsheet_onhold['has_pgs_ids'] = True
 
             sampleset  = performance_info[1]
@@ -467,7 +467,7 @@ class PGSMetadataValidator():
 
         for row_id, sample_list in samples.items():
             for sample in sample_list:
-                if re.search('^\=',str(sample['sample_number'])):
+                if re.search(r'^=', str(sample['sample_number'])):
                     sample['sample_number'] = calculate_formula(self.workbook_samples,sample['sample_number'])
                 try:
                     sample['sample_number'] = int(float(sample['sample_number']))
@@ -526,7 +526,7 @@ class PGSMetadataValidator():
             for sample_value in ['sample_number', 'sample_cases', 'sample_controls']:
                 # Check value exist for the field
                 if sample_value in sample_remapped.keys():
-                    if re.search('^\=',str(sample_remapped[sample_value])):
+                    if re.search(r'^=', str(sample_remapped[sample_value])):
                         # print(f'CALCULATE FORMULA FOR {sample_value}: {sample_remapped[sample_value]}')
                         sample_remapped[sample_value] = calculate_formula(self.workbook_samples,sample_remapped[sample_value])
                     try:
@@ -751,7 +751,7 @@ class PGSMetadataValidator():
                 else:
                     if name.lower().startswith('m'):
                         current_demographic['estimate_type'] = name.strip()
-                        with_units = re.match("([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)
+                        with_units = re.match(r"([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)
                         if with_units:
                             items = with_units.groups()
                             current_demographic['estimate'] = items[0]
@@ -761,7 +761,7 @@ class PGSMetadataValidator():
 
                     elif name.lower().startswith('s'):
                         current_demographic['variability_type'] = name.strip()
-                        with_units = re.match("([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)
+                        with_units = re.match(r"([-+]?\d*\.\d+|\d+) ([a-zA-Z]+)", value, re.I)
                         if with_units:
                             items = with_units.groups()
                             current_demographic['variability']  = items[0]
@@ -936,7 +936,7 @@ def populate_object(wb_spreadsheet, object, object_dict, object_fields):
             if field in object_dict:
                 if object_dict[field] is not None:
                     value = object_dict[field]
-                    if re.search('^\=',str(object_dict[field])):
+                    if re.search(r'^=', str(object_dict[field])):
                         value = calculate_formula(wb_spreadsheet,value)
                     setattr(object, field, value)
     return object
