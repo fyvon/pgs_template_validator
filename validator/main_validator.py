@@ -1,20 +1,21 @@
-import os, re, csv
+import logging
+import os
+import re
+import urllib.request
+from io import BytesIO
+from urllib.error import HTTPError
 
 from openpyxl import load_workbook
-import urllib.request
-from urllib.error import HTTPError
-from io import BytesIO
-import logging
 
-from validator.formula import Formula
 from validator.demographic import Demographic
 from validator.efotrait import EFOTrait
+from validator.formula import Formula
 from validator.metric import Metric
 from validator.performance import PerformanceMetric
 from validator.publication import Publication
+from validator.request.connector import DefaultConnector, ConnectorException
 from validator.sample import Sample
 from validator.score import Score
-from validator.request.connector import DefaultConnector, ConnectorException
 
 logger = logging.getLogger(__name__)
 
