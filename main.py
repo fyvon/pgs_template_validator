@@ -13,16 +13,18 @@ CORS(app)
 cors = CORS(app, resources={r"/": {"origins": "*"}})
 
 
-def format_report_error(report: dict) -> list:
-    errors = []
+def add_report_error(depositon_report: dict, report: dict):
     for spreadsheet in report:
+        errors = []
+        if spreadsheet not in depositon_report.keys():
+            depositon_report[spreadsheet] = []
         for message in report[spreadsheet]:
-            formatted_message = spreadsheet
+            formatted_message = ''
             if report[spreadsheet][message][0]:
-                formatted_message += " (lines: {})".format(report[spreadsheet][message][0])
-            formatted_message += ": " + message
+                formatted_message += "(Lines: {}) ".format(report[spreadsheet][message][0])
+            formatted_message += message
             errors.append(formatted_message)
-    return errors
+        depositon_report[spreadsheet].extend(errors)
 
 
 @app.route('/validate_metadata', methods=['POST'])
@@ -39,19 +41,19 @@ def validate_metadata():
     metadata_validator.post_parsing_checks()
 
     valid = True
-    errors = []
+    depositon_report = {}
     if metadata_validator.report['error']:
         valid = False
         error_report = metadata_validator.report['error']
-        errors.extend(format_report_error(error_report))
+        add_report_error(depositon_report, error_report)
 
     if metadata_validator.report['warning']:
         warning_report = metadata_validator.report['warning']
-        errors.extend(format_report_error(warning_report))
+        add_report_error(depositon_report, warning_report)
 
     response = {
         "valid": valid,
-        "errors": errors
+        "errorMessages": depositon_report
     }
 
     return jsonify(response)
