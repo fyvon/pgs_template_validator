@@ -60,6 +60,10 @@ demographic_followup_fields_infos = {
 }
 
 
+class ReportError(Exception):
+    """Used to interrupt a process if an identified critical validation error is detected and needs to be reported in an except clause."""
+
+
 class PGSMetadataValidator():
 
     def __init__(self, filepath, is_remote, connector=DefaultConnector()):
@@ -346,15 +350,16 @@ class PGSMetadataValidator():
                 if (col_name in current_schema) and (val != '') and val != None:
                     field = current_schema[col_name]
                     if field.startswith('metric'):
-                        if ';' in str(val):
+                        for x in str(val).split(';'):
+                            if x.isnumeric():
+                                x = float(x)
                             try:
-                                for x in val.split(';'):
-                                    parsed_metrics.append(self.str2metric(x, row_id, spread_sheet_name, self.workbook_performances, field))
-                            except:
+                                parsed_metrics.append(self.str2metric(x, row_id, spread_sheet_name, self.workbook_performances, field))
+                            except ReportError as e:
+                                self.report_error(spread_sheet_name, row_id, str(e))
+                            except:  # Unexpected error
                                 error_msg = "Error parsing the metric value '"+str(val)+"'"
-                                self.report_error(spread_sheet_name,row_id,error_msg)
-                        else:
-                           parsed_metrics.append(self.str2metric(val, row_id, spread_sheet_name, self.workbook_performances, field))
+                                self.report_error(spread_sheet_name, row_id, error_msg)
                     else:
                         parsed_performance[field] = val
 
@@ -632,7 +637,8 @@ class PGSMetadataValidator():
                 fname, val = val.split('=', 1)
                 current_metric['name'] = fname.strip()
             else:
-                self.report_error(spread_sheet_name,row_id,f'Metric entry "{val}" is not in the expected format (i.e. "metrics_label = metrics_value")')
+                # The metric data can't be extracted. Interrupting the process with critical error.
+                raise ReportError(f'Metric entry "{val}" is not in the expected format (i.e. "metrics_label = metrics_value")')
 
         # Parse out the confidence interval and estimate
         if type(val) == float:
