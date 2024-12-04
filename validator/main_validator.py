@@ -328,8 +328,7 @@ class PGSMetadataValidator():
                 break
             # Check that the score name is in the "Score(s)" spreadsheet. Exception if the score is an existing PGS ID.
             if self.scores_spreadsheet_onhold['is_empty'] == False:
-                if not score_name in score_names_list and not re.search(r'^PGS\d{6}$', score_name):
-                    self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
+                self.map_score_names(spread_sheet_name, row_id, score_name)
             # If the "Score(s)"" spreadsheet is empty, check that the score name is a PGS ID
             elif re.search(r'^PGS\d{6}$', score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
                 self.scores_spreadsheet_onhold['has_pgs_ids'] = True
@@ -410,6 +409,7 @@ class PGSMetadataValidator():
                     self.report_error(spread_sheet_name, row_id, "The column 'Associated Score Name(s)' is empty.")
                     break
                 score_name = self.check_and_remove_whitespaces(spread_sheet_name, row_id, self.fields_infos[spread_sheet_name]['__score_name']['label'], score_name)
+                self.map_score_names(spread_sheet_name, row_id, score_name)
                 samples_scores[row_id] = sample_info
 
         if samples_testing and self.scores_spreadsheet_onhold['is_empty']:
@@ -424,6 +424,13 @@ class PGSMetadataValidator():
             else:
                 self.parse_samples_testing(spread_sheet_name, current_schema, samples_testing, col_names)
 
+    def map_score_names(self, spreadsheet_name, row_id, scores_string: str):
+        """ Attempt to map score names to those defined in the current study. """
+        score_names = list(map(lambda s: s.strip(), scores_string.split(',')))
+        for score_name in score_names:
+            # "PGS\d{6}" score names are assumed to refer to existing PGS Catalog scores and won't be checked here
+            if score_name not in self.parsed_scores and not re.match(r'^PGS\d{6}$', score_name):
+                self.report_error(spreadsheet_name, row_id, f'Score name "{score_name}" can\'t be found in the Score(s) spreadsheet!')
 
     def parse_samples_scores(self, spread_sheet_name, current_schema, samples_scores, col_names):
         """ Parse and validate the GWAS and the Score development samples in the Sample spreadsheet. """
