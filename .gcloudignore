@@ -22,3 +22,6 @@ pgs-catalog-cred.json_template
 pgs_metadata_validator.py
 LICENSE.md
 README.md
+
+dist
+.idea
