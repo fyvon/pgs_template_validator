@@ -13,6 +13,11 @@ CORS(app)
 cors = CORS(app, resources={r"/": {"origins": "*"}})
 
 
+@app.route("/robots.txt")
+def robots_dot_txt():
+    return "User-agent: *\nDisallow: /"
+
+
 def add_report_error(depositon_report: dict, report: dict):
     for spreadsheet in report:
         errors = []
