@@ -60,6 +60,10 @@ demographic_followup_fields_infos = {
 }
 
 
+class ReportError(Exception):
+    """Used to interrupt a process if an identified critical validation error is detected and needs to be reported in an except clause."""
+
+
 class PGSMetadataValidator():
 
     def __init__(self, filepath, is_remote, connector=DefaultConnector()):
@@ -324,8 +328,7 @@ class PGSMetadataValidator():
                 break
             # Check that the score name is in the "Score(s)" spreadsheet. Exception if the score is an existing PGS ID.
             if self.scores_spreadsheet_onhold['is_empty'] == False:
-                if not score_name in score_names_list and not re.search(r'^PGS\d{6}$', score_name):
-                    self.report_error(spread_sheet_name,row_id,"Score name '"+score_name+"' from the Performance Metrics spreadsheet can't be found in the Score(s) spreadsheet!")
+                self.map_score_names(spread_sheet_name, row_id, score_name)
             # If the "Score(s)"" spreadsheet is empty, check that the score name is a PGS ID
             elif re.search(r'^PGS\d{6}$', score_name) and self.scores_spreadsheet_onhold['has_pgs_ids'] == False:
                 self.scores_spreadsheet_onhold['has_pgs_ids'] = True
@@ -346,15 +349,16 @@ class PGSMetadataValidator():
                 if (col_name in current_schema) and (val != '') and val != None:
                     field = current_schema[col_name]
                     if field.startswith('metric'):
-                        if ';' in str(val):
+                        for x in str(val).split(';'):
+                            if x.isnumeric():
+                                x = float(x)
                             try:
-                                for x in val.split(';'):
-                                    parsed_metrics.append(self.str2metric(x, row_id, spread_sheet_name, self.workbook_performances, field))
-                            except:
+                                parsed_metrics.append(self.str2metric(x, row_id, spread_sheet_name, self.workbook_performances, field))
+                            except ReportError as e:
+                                self.report_error(spread_sheet_name, row_id, str(e))
+                            except:  # Unexpected error
                                 error_msg = "Error parsing the metric value '"+str(val)+"'"
-                                self.report_error(spread_sheet_name,row_id,error_msg)
-                        else:
-                           parsed_metrics.append(self.str2metric(val, row_id, spread_sheet_name, self.workbook_performances, field))
+                                self.report_error(spread_sheet_name, row_id, error_msg)
                     else:
                         parsed_performance[field] = val
 
@@ -364,7 +368,7 @@ class PGSMetadataValidator():
             performance_check_report = performance.check_data(self.fields_infos[spread_sheet_name], self.mandatory_fields[spread_sheet_name])
             self.add_check_report(spread_sheet_name, row_id, performance_check_report)
 
-            performance_id = parsed_performance['score_name']+'__'+parsed_performance['sampleset']
+            performance_id = str(parsed_performance['score_name'])+'__'+str(parsed_performance['sampleset'])
             self.parsed_performances[performance_id] = performance
 
             # Metrics data
@@ -405,6 +409,7 @@ class PGSMetadataValidator():
                     self.report_error(spread_sheet_name, row_id, "The column 'Associated Score Name(s)' is empty.")
                     break
                 score_name = self.check_and_remove_whitespaces(spread_sheet_name, row_id, self.fields_infos[spread_sheet_name]['__score_name']['label'], score_name)
+                self.map_score_names(spread_sheet_name, row_id, score_name)
                 samples_scores[row_id] = sample_info
 
         if samples_testing and self.scores_spreadsheet_onhold['is_empty']:
@@ -419,6 +424,13 @@ class PGSMetadataValidator():
             else:
                 self.parse_samples_testing(spread_sheet_name, current_schema, samples_testing, col_names)
 
+    def map_score_names(self, spreadsheet_name, row_id, scores_string: str):
+        """ Attempt to map score names to those defined in the current study. """
+        score_names = list(map(lambda s: s.strip(), scores_string.split(',')))
+        for score_name in score_names:
+            # "PGS\d{6}" score names are assumed to refer to existing PGS Catalog scores and won't be checked here
+            if score_name not in self.parsed_scores and not re.match(r'^PGS\d{6}$', score_name):
+                self.report_error(spreadsheet_name, row_id, f'Score name "{score_name}" can\'t be found in the Score(s) spreadsheet!')
 
     def parse_samples_scores(self, spread_sheet_name, current_schema, samples_scores, col_names):
         """ Parse and validate the GWAS and the Score development samples in the Sample spreadsheet. """
@@ -632,7 +644,8 @@ class PGSMetadataValidator():
                 fname, val = val.split('=', 1)
                 current_metric['name'] = fname.strip()
             else:
-                self.report_error(spread_sheet_name,row_id,f'Metric entry "{val}" is not in the expected format (i.e. "metrics_label = metrics_value")')
+                # The metric data can't be extracted. Interrupting the process with critical error.
+                raise ReportError(f'Metric entry "{val}" is not in the expected format (i.e. "metrics_label = metrics_value")')
 
         # Parse out the confidence interval and estimate
         if type(val) == float:
