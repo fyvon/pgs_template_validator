@@ -131,3 +131,16 @@ class DefaultConnector(Connector):
             self.logger.debug("Exception: {}. URL: {}".format(str(e), e.url), __name__)
             raise e
 
+
+class CashedConnector(Connector):
+    """This Connector implementation caches the responses in memory to avoid redundant requests to the same URL."""
+    def __init__(self, connector: Connector):
+        super().__init__()
+        self.connector = connector
+        self.cache = {}
+
+    def request(self, url, params=None) -> dict:
+        key = (url, tuple(sorted(params.items())) if params else None)
+        if key not in self.cache:
+            self.cache[key] = self.connector.request(url, params)
+        return self.cache[key]
