@@ -47,7 +47,7 @@ def main():
             print("Error: missing app.yaml file")
             exit(1)
 
-    metadata_validator = PGSMetadataValidator(metadata_filename, metadata_is_remote, CashedConnector(DefaultConnector()))
+    metadata_validator = PGSMetadataValidator(metadata_filename, metadata_is_remote, CashedConnector())
 
     pre_warnings = metadata_validator.test_external_services()
     if len(pre_warnings) > 0:
