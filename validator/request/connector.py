@@ -106,8 +106,8 @@ class Connector(ABC):
 class DefaultConnector(Connector):
     """Default implementation of Connector using the standard requests python library."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         try:
             self.requests = importlib.import_module('requests')
         except ImportError as e:
@@ -131,3 +131,15 @@ class DefaultConnector(Connector):
             self.logger.debug("Exception: {}. URL: {}".format(str(e), e.url), __name__)
             raise e
 
+
+class CashedConnector(DefaultConnector):
+    """This Connector implementation caches the responses in memory to avoid redundant requests to the same URL."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cache = {}
+
+    def request(self, url, params=None) -> dict:
+        key = (url, tuple(sorted(params.items())) if params else None)
+        if key not in self.cache:
+            self.cache[key] = super().request(url, params)
+        return self.cache[key]

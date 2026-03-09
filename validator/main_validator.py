@@ -13,7 +13,7 @@ from validator.formula import Formula
 from validator.metric import Metric
 from validator.performance import PerformanceMetric
 from validator.publication import Publication
-from validator.request.connector import DefaultConnector, ConnectorException
+from validator.request.connector import DefaultConnector, ConnectorException, Connector
 from validator.sample import Sample
 from validator.score import Score
 
@@ -66,7 +66,7 @@ class ReportError(Exception):
 
 class PGSMetadataValidator():
 
-    def __init__(self, filepath, is_remote, connector=DefaultConnector()):
+    def __init__(self, filepath, is_remote, connector: Connector = DefaultConnector()):
         self.filepath = filepath
         self.is_remote = is_remote
         self.connector = connector
