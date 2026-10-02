@@ -102,6 +102,15 @@ class Connector(ABC):
         # Returns 404 if not found.
         return self.request(f'{self.urls["gwas"]}/{gcst_id}')
 
+    def get_gwas_ancestries(self, gcst_id) -> list[dict]:
+        # Returns 404 if not found.
+        url = f'{self.urls["gwas"]}/{gcst_id}/ancestries'
+        response = self.request(url)
+        if '_embedded' in response:
+            return response['_embedded'].get('ancestries', [])
+        else:
+            raise UnknownError(message="Unexpected response from URL: %s" % url, url=url)
+
 
 class DefaultConnector(Connector):
     """Default implementation of Connector using the standard requests python library."""

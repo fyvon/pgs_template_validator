@@ -856,39 +856,40 @@ class PGSMetadataValidator():
         try:
             response_data = self.connector.get_gwas(gcst_id)
             if response_data:
-                source_PMID = response_data['publicationInfo']['pubmedId']
-                for ancestry in response_data['ancestries']:
+                source_PMID = response_data['pubmed_id']
+                ancestries = self.connector.get_gwas_ancestries(gcst_id)
+                for ancestry in ancestries:
 
                     if ancestry['type'] != 'initial':
                         continue
 
                     ancestry_data = {'source_PMID': source_PMID}
-                    ancestry_data['sample_number'] = ancestry['numberOfIndividuals']
+                    ancestry_data['sample_number'] = ancestry['number_of_individuals']
 
                     # ancestry_broad
-                    for ancestralGroup in ancestry['ancestralGroups']:
+                    for ancestralGroup in ancestry['ancestral_groups']:
                         if not 'ancestry_broad' in ancestry_data:
                             ancestry_data['ancestry_broad'] = ''
                         else:
                             ancestry_data['ancestry_broad'] += ','
-                        ancestry_data['ancestry_broad'] += ancestralGroup['ancestralGroup']
+                        ancestry_data['ancestry_broad'] += ancestralGroup['ancestral_group']
                     # ancestry_free
-                    for countryOfOrigin in ancestry['countryOfOrigin']:
-                        if countryOfOrigin['countryName'] != 'NR':
+                    for countryOfOrigin in ancestry['country_of_origin']:
+                        if countryOfOrigin['country_name'] != 'NR':
                             if not 'ancestry_free' in ancestry_data:
                                 ancestry_data['ancestry_free'] = ''
                             else:
                                 ancestry_data['ancestry_free'] += ','
-                            ancestry_data['ancestry_free'] += countryOfOrigin['countryName']
+                            ancestry_data['ancestry_free'] += countryOfOrigin['country_name']
 
                     # ancestry_country
-                    for countryOfRecruitment in ancestry['countryOfRecruitment']:
-                        if countryOfRecruitment['countryName'] != 'NR':
+                    for countryOfRecruitment in ancestry['country_of_recruitment']:
+                        if countryOfRecruitment['country_name'] != 'NR':
                             if not 'ancestry_country' in ancestry_data:
                                 ancestry_data['ancestry_country'] = ''
                             else:
                                 ancestry_data['ancestry_country'] += ','
-                            ancestry_data['ancestry_country'] += countryOfRecruitment['countryName']
+                            ancestry_data['ancestry_country'] += countryOfRecruitment['country_name']
                     # ancestry_additional
                     # Not found in the REST API
 
