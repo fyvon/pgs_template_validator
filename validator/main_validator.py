@@ -270,6 +270,8 @@ class PGSMetadataValidator():
                         efo_trait = EFOTrait(trait_efo_id)
                         efo_id_found = efo_trait.populate_from_efo(self.connector)
                         if efo_id_found:
+                            if efo_trait.is_obsolete:
+                                self.report_error(spread_sheet_name, row_id, "'"+trait_efo_id+"' is obsolete.")
                             self.parsed_efotraits[trait_efo_id] = efo_trait
                         else:
                             self.report_error(spread_sheet_name,row_id,"Can't find a corresponding entry in EFO for '"+trait_efo_id+"'")
